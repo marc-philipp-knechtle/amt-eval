@@ -26,7 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('dataset_name', nargs='?', default='default',
                         help='The dataset which the predictions are evaluated on.')
     parser.add_argument('dataset_group', nargs='?', default=None)
-    parser.add_argument('--save-path', default=None)
+    # -> only use this when storing like pianorolls etc.
+    # parser.add_argument('--save-path', default=None)
 
     args: argparse.Namespace = parser.parse_args()
 
