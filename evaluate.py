@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     args: argparse.Namespace = parser.parse_args()
 
-    dataset_name: str = parser.parse_args().piano_roll_audio_dataset_name
+    dataset_name: str = parser.parse_args().dataset_name
     datetime_str: str = datetime.now().strftime('%y%m%d-%H%M')
     logging_filepath: str
     if args.save_path is None:
