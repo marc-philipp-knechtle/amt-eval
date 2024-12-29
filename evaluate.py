@@ -10,10 +10,10 @@ from typing import List
 from data.dataset import SchubertWinterreiseDataset
 
 
-def evaluate_inference_dir(predictions_dir, dataset_name, dataset_group):
+def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str):
     dataset_groups: List[str] = dataset_group.split(',')
 
-    dataset =  SchubertWinterreiseDataset()
+    dataset = SchubertWinterreiseDataset()
 
     metrics = defaultdict(list)
 
@@ -25,13 +25,16 @@ if __name__ == '__main__':
     parser.add_argument('predictions_dir', type=str)
     parser.add_argument('dataset_name', nargs='?', default='default',
                         help='The dataset which the predictions are evaluated on.')
-    parser.add_argument('dataset_group', nargs='?', default=None)
-    # -> only use this when storing like pianorolls etc.
-    # parser.add_argument('--save-path', default=None)
+    parser.add_argument('dataset_group', nargs='?', default=None, help='Comma-separated dataset groups')
+    parser.add_argument('--save-path', default=None)
 
     args: argparse.Namespace = parser.parse_args()
-
     dataset_name: str = parser.parse_args().dataset_name
+    predictions_dir = args.predictions_dir
+    """
+    directory  where the predictions to be evaluated are saved
+    """
+
     datetime_str: str = datetime.now().strftime('%y%m%d-%H%M')
     logging_filepath: str
     if args.save_path is None:
@@ -43,4 +46,4 @@ if __name__ == '__main__':
     # filemode=a -> append
     logging.basicConfig(filename=logging_filepath, filemode="a", level=logging.INFO)
 
-    predictions_dir = args.predictions_dir
+    evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group)
