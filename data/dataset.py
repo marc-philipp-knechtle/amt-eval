@@ -23,12 +23,13 @@ class NoteTrackingDataset(Dataset):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     data: List[Dict[str, Tensor]]
     """
-    basically the .pt files which are saved automatically. 
+    Tuple[filename,Tensor=basically the .pt files which are saved automatically] 
     """
 
     def __init__(self, path: str, groups: List[str] = None):
         self.path = path
         self.groups = groups if groups is not None else self.available_groups()
+        self.data: List[Dict[str, Tensor]] = []
 
         print(f"Loading {len(self.groups)} group{'s' if len(self.groups) > 1 else ''} "
               f"of {self.__class__.__name__} at {self.path}")
@@ -77,7 +78,6 @@ class NoteTrackingDataset(Dataset):
         for i in range(len(self.data)):
             yield self[i]
 
-
     @classmethod
     @abstractmethod
     def available_groups(cls) -> List[str]:
@@ -86,8 +86,9 @@ class NoteTrackingDataset(Dataset):
     @abstractmethod
     def get_files(self, group: str) -> List[Tuple[str, str]]:
         """
-        :param group:
-        :return:
+        :param group: group
+        :return: List of Tuple[audio_filename, tsv_filename]
+        tsv is a list representation in the form of: [onset,offset,pitch,velocity]
         """
         raise NotImplementedError
 
@@ -121,7 +122,7 @@ class NoteTrackingDataset(Dataset):
             return torch.load(saved_data_path)
 
         audio: np.ndarray
-        audio, sr = soundfile.read(audio_path, dtype='int64', always_2d=True)
+        audio, sr = soundfile.read(audio_path, dtype='int16', always_2d=True)
         # Conversion to float see:
         # https://stackoverflow.com/questions/58810035/converting-audio-files-between-pydub-and-librosa
         audio: np.ndarray = np.array(audio).astype(np.float32)
@@ -131,7 +132,7 @@ class NoteTrackingDataset(Dataset):
 
         if sr != SAMPLE_RATE:
             logging.info(f"Sample Rate Mismatch: resampling file: {audio_path}, from {sr} to default: {SAMPLE_RATE}")
-            audio = librosa.resample(audio, sr, SAMPLE_RATE)
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=SAMPLE_RATE)
 
         audio_tensor = torch.ShortTensor(audio)
         audio_length = len(audio_tensor)
@@ -182,6 +183,9 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
 
     @staticmethod
     def get_filepaths_for_group(directory: str, group_pattern) -> List[str]:
+        """
+        Returns: All matching files (paths) for a certain group
+        """
         files = glob(os.path.join(directory, '**', '*.wav'), recursive=True)
         matching_files = [file for file in files if re.compile(fr".*{re.escape(group_pattern)}.*").search(file)]
         return matching_files
@@ -195,41 +199,69 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         return ['AL98', 'FI55', 'FI66', 'FI80', 'HU33', 'OL06', 'QU98', 'SC06', 'TR99']
 
     def get_files(self, group: str) -> List[Tuple[str, str]]:
+        """
+        Base methods to load all audio files into memory
+        Returns: List of Tuple[audio_filename.wav,midi_filename.wav]
+        """
         audio_filepaths: List[str] = self.get_filepaths_for_group(self.swd_audio_wav, group)
         if len(audio_filepaths) == 0:
             raise RuntimeError(f'Expected files for group {group}, found nothing.')
 
         ann_audio_note_filepaths_csv: List[str] = glob(os.path.join(self.swd_csv, '*.csv'))
+        assert len(ann_audio_note_filepaths_csv) > 0
 
         # save csv as midi
         midi_path = midi.save_csv_as_midi(ann_audio_note_filepaths_csv, self.swd_midi)
-        midi_audio_filepaths: List[str] = glob(os.path.join(midi_path, '*.mid'))
-        files_audio_audio_midi: List[Tuple[str, str]] = self.combine_audio_midi(audio_filepaths, midi_audio_filepaths)
-        return files_audio_audio_midi
+        midi_filepaths: List[str] = glob(os.path.join(midi_path, '*.mid'))
 
+        # combine .wav with .midi
+        filepaths_audio_midi: List[Tuple[str, str]] = self._combine_audio_midi(audio_filepaths, midi_filepaths)
+
+        return self._create_audio_tsv(filepaths_audio_midi)
+
+    def _create_audio_tsv(self, filepaths_audio_midi: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+        """
+        Creates .tsv files based on midi files (using midi.create_tsv_from_midi(...))
+        Returns: List of audio filepath with tsv filepath
+        """
+        filepaths_audio_tsv: List[Tuple[str, str]] = []
+        audio_filepath: str
+        midi_filepath: str
+        if not os.path.exists(self.swd_tsv):
+            os.makedirs(self.swd_tsv)
+        for audio_filepath, midi_filepath in filepaths_audio_midi:
+            tsv_filepath: str = os.path.join(self.swd_tsv, os.path.basename(midi_filepath).replace('.mid', '.tsv'))
+            if not os.path.exists(tsv_filepath):
+                midi.create_tsv_from_midi(midi_filepath, tsv_filepath)
+            filepaths_audio_tsv.append((audio_filepath, tsv_filepath))
+        return filepaths_audio_tsv
 
     def load_annotations(self, annotation_path: str) -> np.ndarray:
-        pass
+        """
+        :param annotation_path: tsv annotation path
+        :return: tsv as np.ndarray
+        """
+        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
 
     @staticmethod
-    def combine_audio_midi(audio_filenames: List[str], midi_filenames: List[str]) -> List[Tuple[str, str]]:
+    def _combine_audio_midi(audio_filepaths: List[str], midi_filepaths: List[str]) -> List[Tuple[str, str]]:
         """
         Args:
-            audio_filenames: List of all audio filenames
-            midi_filenames: List of all midi filenames
+            audio_filepaths: List of all audio filenames
+            midi_filepaths: List of all midi filenames
         Returns: audio - midi filename combination in the form of a List of tuples
         """
         audio_midi_combination: List[Tuple[str, str]] = []
-        for audio_filename in audio_filenames:
-            basename = os.path.basename(audio_filename)
+        for audio_filepath in audio_filepaths:
+            basename = os.path.basename(audio_filepath)
             number_str: str = basename[14:16]
             performance: str = basename[17:21]
             # Find matching midi file
-            matching_files = [midi_file for midi_file in midi_filenames if
+            matching_files = [midi_file for midi_file in midi_filepaths if
                               re.compile(fr".*-{number_str}_{performance}.*").search(midi_file)]
             if len(matching_files) > 1:
-                raise RuntimeError(f"Found more than one matching file for audio filename: {audio_filename}")
+                raise RuntimeError(f"Found more than one matching file for audio filename: {audio_filepath}")
             midi_filepath: str = matching_files[0]
             # Create tuple
-            audio_midi_combination.append((os.path.basename(audio_filename), os.path.basename(midi_filepath)))
+            audio_midi_combination.append((audio_filepath, midi_filepath))
         return audio_midi_combination
