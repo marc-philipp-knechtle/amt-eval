@@ -17,7 +17,7 @@ from mir_eval.util import hz_to_midi
 from tqdm import tqdm
 
 
-def parse_midi(path: str, global_key_offset: int = 0) -> np.ndarray:
+def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarray:
     """
     open midi file and return np.array() of (onset, offset, note, velocity) rows
     Args:
@@ -196,7 +196,7 @@ def save_csv_as_midi(csv_filenames: List[str], path: str, instrument_arg: str = 
 def create_tsv_from_midi(midi_filepath: str, tsv_filepath: str):
     midi_filename: str = os.path.basename(midi_filepath)
     logging.debug(f'Parsing midi file: {os.path.basename(midi_filename)}.')
-    midifile: np.ndarray = parse_midi(midi_filepath)
+    midifile: np.ndarray = parse_midi_note_tracking(midi_filepath)
 
     # With this statement, you can verify that all the midi information has been converted to tsv correctly
     # save_np_arr_as_midi(midifile, '/tmp/tmp.mid')
@@ -257,7 +257,7 @@ if __name__ == '__main__':
 
 
     def process(input_file, output_file):
-        midi_data = parse_midi(input_file)
+        midi_data = parse_midi_note_tracking(input_file)
         # see explanation in dataset.py for np.savetxt
         # noinspection PyTypeChecker
         np.savetxt(output_file, midi_data, '%.6f', '\t', header='onset\toffset\tnote\tvelocity')
