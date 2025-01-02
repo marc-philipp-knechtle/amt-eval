@@ -26,7 +26,8 @@ def main():
     parser.add_argument('predictions_dir', type=str)
     parser.add_argument('dataset_name', nargs='?', default='default',
                         help='The dataset which the predictions are evaluated on.')
-    parser.add_argument('dataset_group', nargs='?', default=None, help='Comma-separated dataset groups')
+    parser.add_argument('dataset_group', nargs='?', default='',
+                        help='Comma-separated dataset groups which we evaluate on.')
     parser.add_argument('--save-path', default=None)
     args: argparse.Namespace = parser.parse_args()
     dataset_name: str = parser.parse_args().dataset_name
