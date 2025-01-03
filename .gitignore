@@ -1,6 +1,9 @@
 datasets
 # used as the default directory for runs
 runs
+
 .idea
+.vscode
+
 __pycache__
 */__pycache__
