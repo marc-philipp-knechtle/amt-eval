@@ -1,24 +1,149 @@
 import argparse
 import os
 import logging
+import re
+import sys
 from collections import defaultdict
 
 from datetime import datetime
 from glob import glob
-from typing import List
+from typing import List, Dict, Tuple
 
+import mir_eval
+import numpy as np
+from torch import Tensor
+from tqdm import tqdm
+
+import utils.log
+from constants import SAMPLE_RATE, HOP_LENGTH, MIN_MIDI
 from data.dataset import SchubertWinterreiseDataset
+from utils import midi, decoding
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+formatter = utils.log.CustomFormatter()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+LOGGING_FILEPATH = ''
 
 
-def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str):
+def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str, save_path: str = None):
     dataset_groups: List[str] = dataset_group.split(',')
 
     # todo replace this with a determine dataset function
-    dataset = SchubertWinterreiseDataset()
+    dataset = SchubertWinterreiseDataset(logger_filepath=LOGGING_FILEPATH)
 
-    metrics = defaultdict(list)
+    metrics: defaultdict = defaultdict(list)
 
     predictions_filepaths: List[str] = glob(os.path.join(predictions_dir, '*.mid'))
+
+    # path, audio, label, velocity, onset, offset, frame
+    label: Dict[str, Tensor | str]
+    for label in tqdm(dataset):
+        audio_wav_name = os.path.basename(label['path']).replace('.wav', '')
+        matching_predictions = [prediction_file for prediction_file in predictions_filepaths if
+                                re.compile(fr".*{re.escape(audio_wav_name)}.*").search(prediction_file)]
+        if len(matching_predictions) != 1:
+            raise RuntimeError(
+                f'Found different amount of predictions for label {audio_wav_name}. '
+                f'Expected 1, found {len(matching_predictions)}.')
+        prediction_filepath = matching_predictions[0]
+        prediction_note_tracking: np.ndarray = midi.parse_midi_note_tracking(prediction_filepath)
+
+        pitches: List[int] = []
+        intervals: List[Tuple] = []
+        velocities: List[int] = []
+        for start_time, end_time, pitch, velocity in prediction_note_tracking:
+            pitches.append(pitch)
+            intervals.append((start_time, end_time))
+            velocities.append(velocity)
+
+        scaling_frame_to_real = HOP_LENGTH / SAMPLE_RATE
+        """
+        With scaling_frame_to_real, we can convert from time bin indices back to realtime
+        """
+        scaling_real_to_frame = SAMPLE_RATE / HOP_LENGTH
+
+        """
+        shape parameters:
+        n = number of detected notes
+        """
+
+        # shape=(n,)
+        p_est: np.ndarray = np.array(pitches)
+        """
+        Array of estimated pitches (in midi values)
+        """
+        # shape=(n,)
+        p_est_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_est])
+
+        # shape=(n,2)
+        i_est: np.ndarray = np.array(intervals)
+        """
+        List of estimated intervals (onset time, offset time), in real! time
+        """
+        # shape=(n,2)
+        i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).reshape(-1, 2).astype(int)
+        """
+        List of estimated intervals in frame time
+        """
+
+        # shape=(n,)
+        v_est: np.ndarray = np.array(velocities)
+
+        p_ref: np.ndarray
+        i_ref_frames: np.ndarray
+        v_ref: np.ndarray
+        p_ref, i_ref_frames, v_ref = decoding.extract_notes(label['onset'], label['frame'], label['velocity'])
+        i_ref = (i_ref_frames * scaling_frame_to_real).reshape(-1, 2)
+        p_ref_hz = np.array([mir_eval.util.midi_to_hz(MIN_MIDI + midi_val) for midi_val in p_ref])
+
+        p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz,
+                                                                        i_est, p_est_hz,
+                                                                        offset_ratio=None)
+        metrics['metric/note/precision'].append(p)
+        metrics['metric/note/recall'].append(r)
+        metrics['metric/note/f1'].append(f)
+        metrics['metric/note/overlap'].append(o)
+
+        p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz, i_est, p_est_hz)
+        metrics['metric/note-with-offsets/precision'].append(p)
+        metrics['metric/note-with-offsets/recall'].append(r)
+        metrics['metric/note-with-offsets/f1'].append(f)
+        metrics['metric/note-with-offsets/overlap'].append(o)
+
+        p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
+                                                                                 i_est, p_est_hz, v_est,
+                                                                                 offset_ratio=None,
+                                                                                 velocity_tolerance=0.1)
+        metrics['metric/note-with-velocity/precision'].append(p)
+        metrics['metric/note-with-velocity/recall'].append(r)
+        metrics['metric/note-with-velocity/f1'].append(f)
+        metrics['metric/note-with-velocity/overlap'].append(o)
+
+        p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
+                                                                                 i_est, p_est_hz, v_est,
+                                                                                 velocity_tolerance=0.1)
+        metrics['metric/note-with-offsets-and-velocity/precision'].append(p)
+        metrics['metric/note-with-offsets-and-velocity/recall'].append(r)
+        metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
+        metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
+
+    total_eval_str: str = ''
+    for key, values in metrics.items():
+        if key.startswith('metric/'):
+            _, category, name = key.split('/')
+            eval_str: str = f'{category:>32} {name:25}: {np.mean(values):.3f} ± {np.std(values):.3f}'
+            logging.info(eval_str)
+            total_eval_str += eval_str + '\n'
+
+    if save_path is not None:
+        metrics_filepath = os.path.join(save_path, f'metrics-{dataset_name}.txt')
+        with open(metrics_filepath, 'w') as f:
+            f.write(total_eval_str)
 
 
 def main():
@@ -43,9 +168,15 @@ def main():
         logging_filepath = os.path.join(args.save_path, f'evaluation-{dataset_name}-{datetime_str}.log')
     if not os.path.exists(os.path.dirname(logging_filepath)):
         os.makedirs(os.path.dirname(logging_filepath))
-    # filemode=a -> append
-    logging.basicConfig(filename=logging_filepath, filemode="a", level=logging.INFO)
-    evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group)
+    global LOGGING_FILEPATH
+    LOGGING_FILEPATH = logging_filepath
+
+    file_handler = logging.FileHandler(logging_filepath)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
+
+    evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group, save_path=args.save_path)
 
 
 if __name__ == '__main__':

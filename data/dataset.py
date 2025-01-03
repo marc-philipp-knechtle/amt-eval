@@ -1,6 +1,7 @@
 import logging
 import os.path
 import re
+import sys
 from abc import abstractmethod
 from glob import glob
 from typing import List, Dict, Tuple
@@ -13,23 +14,40 @@ import soundfile
 import torch
 
 from constants import SAMPLE_RATE, MAX_MIDI, MIN_MIDI, HOP_LENGTH, HOPS_IN_ONSET, HOPS_IN_OFFSET
-from utils import midi
+from utils import midi, log
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+formatter = log.CustomFormatter()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
 
 
 class NoteTrackingDataset(Dataset):
     path: str
     groups: List[str]
-    # sequence_length: int
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     data: List[Dict[str, Tensor]]
     """
     Tuple[filename,Tensor=basically the .pt files which are saved automatically] 
     """
 
-    def __init__(self, path: str, groups: List[str] = None):
+    def __init__(self, path: str, groups: List[str] = None, logging_filepath: str = None):
         self.path = path
         self.groups = groups if groups is not None else self.available_groups()
         self.data: List[Dict[str, Tensor]] = []
+        """
+        data for this dataset
+        List of Dict[audio_filepath, Tensordata(see function load)]
+        """
+
+        if logging_filepath is not None:
+            file_handler = logging.FileHandler(logging_filepath)
+            file_handler.setFormatter(formatter)
+            file_handler.setLevel(logging.INFO)
+            logger.addHandler(file_handler)
 
         print(f"Loading {len(self.groups)} group{'s' if len(self.groups) > 1 else ''} "
               f"of {self.__class__.__name__} at {self.path}")
@@ -42,33 +60,20 @@ class NoteTrackingDataset(Dataset):
             for input_file in self.get_files(group):
                 self.data.append(self.load(input_file[0], input_file[1]))
 
-    def __getitem__(self, index):
-        data = self.data[index]
-        result = dict(path=data['path'])
-
-        # if self.sequence_length is not None:
-        #     audio_length = len(data['audio'])
-        #     step_begin = self.random.randint(audio_length - self.sequence_length) // HOP_LENGTH
-        #     n_steps = self.sequence_length // HOP_LENGTH
-        #     step_end = step_begin + n_steps
-        #
-        #     begin = step_begin * HOP_LENGTH
-        #     end = begin + self.sequence_length
-        #
-        #     result['audio'] = data['audio'][begin:end].to(self.device)
-        #     result['label'] = data['label'][step_begin:step_end, :].to(self.device)
-        #     result['velocity'] = data['velocity'][step_begin:step_end, :].to(self.device)
-        # else:
-        result['audio'] = data['audio'].to(self.device)
-        result['label'] = data['label'].to(self.device)
-        result['velocity'] = data['velocity'].to(self.device).float()
-
-        result['audio'] = result['audio'].float().div_(32768.0)
-        result['onset'] = (result['label'] == 3).float()
-        result['offset'] = (result['label'] == 1).float()
-        result['frame'] = (result['label'] > 1).float()
-        result['velocity'] = result['velocity'].float().div_(128.0)
-
+    def __getitem__(self, index) -> Dict[str, Tensor | str]:
+        """
+        label = used to store the information efficiently (see load())
+        :return: Dictionary of saved item: path, audio, label, velocity, onset, offset, frame
+        """
+        data: Dict[str, Tensor] = self.data[index]
+        result: Dict[str, Tensor | str] = (
+            dict(path=data['path'],
+                 audio=data['audio'].to(self.device).float().div_(32768.0),
+                 label=data['label'].to(self.device),
+                 velocity=data['velocity'].to(self.device).float().div_(128.0),
+                 onset=(data['label'].to(self.device) == 3).float(),
+                 offset=(data['label'].to(self.device) == 1).float(),
+                 frame=(data['label'].to(self.device) > 1).float()))
         return result
 
     def __len__(self):
@@ -131,7 +136,7 @@ class NoteTrackingDataset(Dataset):
         audio = audio[0]
 
         if sr != SAMPLE_RATE:
-            logging.info(f"Sample Rate Mismatch: resampling file: {audio_path}, from {sr} to default: {SAMPLE_RATE}")
+            logger.info(f"Sample Rate Mismatch: resampling file: {audio_path}, from {sr} to default: {SAMPLE_RATE}")
             audio = librosa.resample(audio, orig_sr=sr, target_sr=SAMPLE_RATE)
 
         audio_tensor = torch.ShortTensor(audio)
@@ -169,14 +174,14 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
     swd_tsv: str
     swd_audio_wav: str
 
-    def __init__(self, path='datasets/Schubert_Winterreise_Dataset_v2-1', groups=None):
+    def __init__(self, path='datasets/Schubert_Winterreise_Dataset_v2-1', groups=None, logger_filepath: str = None):
         # adding underscore to symbolize that these annotations are computationally created
         self.swd_midi = os.path.join(path, '02_Annotations', '_ann_audio_note_midi')
         self.swd_csv = os.path.join(path, '02_Annotations', 'ann_audio_note')
         self.swd_tsv = os.path.join(path, '02_Annotations', '_ann_audio_note_tsv')
         self.swd_audio_wav = os.path.join(path, '01_RawData', 'audio_wav')
 
-        super().__init__(path, groups)
+        super().__init__(path, groups, logger_filepath)
 
     def __str__(self):
         return 'SchubertWinterreiseDataset'
