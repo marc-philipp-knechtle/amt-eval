@@ -140,7 +140,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         if key.startswith('metric/'):
             _, category, name = key.split('/')
             eval_str: str = f'{category:>32} {name:25}: {np.mean(values):.3f} ± {np.std(values):.3f}'
-            logging.info(eval_str)
+            logger.info(eval_str)
             total_eval_str += eval_str + '\n'
 
     if save_path is not None:
