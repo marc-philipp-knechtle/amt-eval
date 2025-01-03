@@ -33,8 +33,11 @@ LOGGING_FILEPATH = ''
 def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str, save_path: str = None):
     dataset_groups: List[str] = dataset_group.split(',')
 
+    logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_groups}. '
+                f'Storing results in {save_path}.')
+
     # todo replace this with a determine dataset function
-    dataset = SchubertWinterreiseDataset(logger_filepath=LOGGING_FILEPATH)
+    dataset = SchubertWinterreiseDataset(logger_filepath=LOGGING_FILEPATH, groups=['HU33', 'SC06'])
 
     metrics: defaultdict = defaultdict(list)
 
