@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 import utils.log
 from constants import SAMPLE_RATE, HOP_LENGTH, MIN_MIDI
-from data.dataset import SchubertWinterreiseDataset
+from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset
 from utils import midi, decoding
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,8 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
 
     # todo replace this with a determine dataset function
     dataset = SchubertWinterreiseDataset(logger_filepath=LOGGING_FILEPATH, groups=['HU33', 'SC06'])
+
+    test_wagner = WagnerRingDataset(logger_filepath=LOGGING_FILEPATH, groups=['Furtwangler1953', 'KeilberthFurtw1952', 'Krauss1953'])
 
     metrics: defaultdict = defaultdict(list)
 
