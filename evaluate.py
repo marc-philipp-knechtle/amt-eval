@@ -37,9 +37,8 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
                 f'Storing results in {save_path}.')
 
     # todo replace this with a determine dataset function
-    dataset = SchubertWinterreiseDataset(logger_filepath=LOGGING_FILEPATH, groups=['HU33', 'SC06'])
-
-    test_wagner = WagnerRingDataset(logger_filepath=LOGGING_FILEPATH, groups=['Furtwangler1953', 'KeilberthFurtw1952', 'Krauss1953'])
+    # dataset = SchubertWinterreiseDataset(logger_filepath=LOGGING_FILEPATH, groups=['HU33', 'SC06'])
+    dataset = WagnerRingDataset(logger_filepath=LOGGING_FILEPATH, groups=['Furtwangler1953', 'KeilberthFurtw1952', 'Krauss1953'])
 
     metrics: defaultdict = defaultdict(list)
 
@@ -99,6 +98,8 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         # shape=(n,)
         v_est: np.ndarray = np.array(velocities)
 
+        del pitches, intervals, velocities, prediction_note_tracking
+
         p_ref: np.ndarray
         i_ref_frames: np.ndarray
         v_ref: np.ndarray
@@ -109,12 +110,14 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz,
                                                                         i_est, p_est_hz,
                                                                         offset_ratio=None)
+        logger.debug(f"Calculated onset metrics p: {p}, r: {r}, f: {f}, o: {o}")
         metrics['metric/note/precision'].append(p)
         metrics['metric/note/recall'].append(r)
         metrics['metric/note/f1'].append(f)
         metrics['metric/note/overlap'].append(o)
 
         p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz, i_est, p_est_hz)
+        logger.debug(f"Calculated onset/offset metrics p: {p}, r: {r}, f: {f}, o: {o}")
         metrics['metric/note-with-offsets/precision'].append(p)
         metrics['metric/note-with-offsets/recall'].append(r)
         metrics['metric/note-with-offsets/f1'].append(f)
@@ -124,6 +127,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
                                                                                  i_est, p_est_hz, v_est,
                                                                                  offset_ratio=None,
                                                                                  velocity_tolerance=0.1)
+        logger.debug(f"Calculated onset/velocity metrics p: {p}, r: {r}, f: {f}, o: {o}")
         metrics['metric/note-with-velocity/precision'].append(p)
         metrics['metric/note-with-velocity/recall'].append(r)
         metrics['metric/note-with-velocity/f1'].append(f)
@@ -132,10 +136,13 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
                                                                                  i_est, p_est_hz, v_est,
                                                                                  velocity_tolerance=0.1)
+        logger.debug(f"Calculated onset/offset/velocity metrics p: {p}, r: {r}, f: {f}, o: {o}")
         metrics['metric/note-with-offsets-and-velocity/precision'].append(p)
         metrics['metric/note-with-offsets-and-velocity/recall'].append(r)
         metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
         metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
+
+        del i_ref, i_est, p_est, p_ref, p_est_hz, p_ref_hz
 
     total_eval_str: str = ''
     for key, values in metrics.items():

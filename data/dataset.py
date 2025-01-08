@@ -8,6 +8,8 @@ from typing import List, Dict, Tuple
 
 import librosa
 import numpy as np
+import pandas as pd
+import pretty_midi
 from torch.utils.data import Dataset
 from torch import Tensor
 import soundfile
@@ -49,7 +51,7 @@ class NoteTrackingDataset(Dataset):
             file_handler.setLevel(logging.INFO)
             logger.addHandler(file_handler)
 
-        print(f"Loading {len(self.groups)} group{'s' if len(self.groups) > 1 else ''} "
+        logger.info(f"Loading {len(self.groups)} group{'s' if len(self.groups) > 1 else ''} "
               f"of {self.__class__.__name__} at {self.path}")
 
         for group in self.groups:
@@ -60,13 +62,13 @@ class NoteTrackingDataset(Dataset):
             for input_file in self.get_files(group):
                 self.data.append(self.load(input_file[0], input_file[1]))
 
-    def __getitem__(self, index) -> Dict[str, Tensor | str]:
+    def __getitem__(self, index):
         """
         label = used to store the information efficiently (see load())
         :return: Dictionary of saved item: path, audio, label, velocity, onset, offset, frame
         """
         data: Dict[str, Tensor] = self.data[index]
-        result: Dict[str, Tensor | str] = (
+        result = (
             dict(path=data['path'],
                  audio=data['audio'].to(self.device).float().div_(32768.0),
                  label=data['label'].to(self.device),
@@ -97,8 +99,13 @@ class NoteTrackingDataset(Dataset):
         """
         raise NotImplementedError
 
+    @staticmethod
     @abstractmethod
-    def load_annotations(self, annotation_path: str) -> np.ndarray:
+    def load_annotations(annotation_path: str) -> np.ndarray:
+        """
+        used in NoteTrackingDataset.load(...)
+        :return: annotation as np.ndarray in the form of [onset,offset,pitch,velocity]
+        """
         raise NotImplementedError
 
     def load(self, audio_path: str, annotation_path: str) -> Dict[str, Tensor]:
@@ -222,26 +229,28 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         # combine .wav with .midi
         filepaths_audio_midi: List[Tuple[str, str]] = self._combine_audio_midi(audio_filepaths, midi_filepaths)
 
-        return self._create_audio_tsv(filepaths_audio_midi)
+        return self.create_audio_tsv(filepaths_audio_midi, self.swd_tsv)
 
-    def _create_audio_tsv(self, filepaths_audio_midi: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    @staticmethod
+    def create_audio_tsv(filepaths_audio_midi: List[Tuple[str, str]], tsv_dir: str) -> List[Tuple[str, str]]:
         """
         Creates .tsv files based on midi files (using midi.create_tsv_from_midi(...))
-        Returns: List of audio filepath with tsv filepath
+        Returns: List[Tuple[str, str]] of audio filepath with tsv filepath
         """
         filepaths_audio_tsv: List[Tuple[str, str]] = []
         audio_filepath: str
         midi_filepath: str
-        if not os.path.exists(self.swd_tsv):
-            os.makedirs(self.swd_tsv)
+        if not os.path.exists(tsv_dir):
+            os.makedirs(tsv_dir)
         for audio_filepath, midi_filepath in filepaths_audio_midi:
-            tsv_filepath: str = os.path.join(self.swd_tsv, os.path.basename(midi_filepath).replace('.mid', '.tsv'))
+            tsv_filepath: str = os.path.join(tsv_dir, os.path.basename(midi_filepath).replace('.mid', '.tsv'))
             if not os.path.exists(tsv_filepath):
                 midi.create_tsv_from_midi(midi_filepath, tsv_filepath)
             filepaths_audio_tsv.append((audio_filepath, tsv_filepath))
         return filepaths_audio_tsv
 
-    def load_annotations(self, annotation_path: str) -> np.ndarray:
+    @staticmethod
+    def load_annotations(annotation_path: str) -> np.ndarray:
         """
         :param annotation_path: tsv annotation path
         :return: tsv as np.ndarray
@@ -270,3 +279,98 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
             # Create tuple
             audio_midi_combination.append((audio_filepath, midi_filepath))
         return audio_midi_combination
+
+
+class WagnerRingDataset(NoteTrackingDataset):
+    """
+    The Wagner Ring dataset matches the Schubert Winterreise dataset in terms of audio structure. 
+    However it is not easily possible to use the implementations of SWD (without SWD rewriting) as a lot of it is also SWD specific. 
+    One goal would be to reuse static methods as much as possible.
+    """
+    wr_midi: str
+    wr_csv: str
+    wr_tsv: str
+    wr_audio_wav: str
+
+    def __init__(self, path='datasets/WagnerRing_v0-1', groups=None, logger_filepath: str = None):
+        # adding underscore to symbolize that these annotations are computationally created
+        self.wr_midi = os.path.join(path, '02_Annotations', '_ann_audio_note_midi')
+        self.wr_csv = os.path.join(path, '02_Annotations', 'ann_audio_note')
+        self.wr_tsv = os.path.join(path, '02_Annotations', '_ann_audio_note_tsv')
+        self.wr_audio_wav = os.path.join(path, '01_RawData', 'audio_wav')
+
+        super().__init__(path, groups, logger_filepath)
+
+    def __str__(self):
+        return 'WagnerRingDataset'
+
+    @classmethod
+    def available_groups(cls) -> List[str]:
+        return ['KeilberthFurtw1952', 'Furtwangler1953', 'Krauss1953', 'Solti1958', 'Karajan1966', 'Bohm1967',
+                'Swarowsky1968', 'Boulez1980', 'Janowski1980', 'Levine1987', 'Haitink1988', 'Sawallisch1989',
+                'Barenboim1991', 'Neuhold1993', 'Weigle2010', 'Thielemann2011']
+
+    def get_files(self, group: str) -> List[Tuple[str, str]]:
+        """
+        :return: List of audio filepath with tsv filepath
+        """
+        logger.info(f"Loading Files for group {group}")
+        audio_filepaths: List[str] = SchubertWinterreiseDataset.get_filepaths_for_group(self.wr_audio_wav, group)
+        if len(audio_filepaths) == 0:
+            raise RuntimeError(f'Expected files for group {group}, found nothing.')
+
+        ann_audio_note_filepaths_csv: List[str] = glob(os.path.join(self.wr_csv, '*.csv'))
+        assert len(ann_audio_note_filepaths_csv) > 0
+
+        # save csv as midi
+        midi_path = self._save_csv_as_midi(ann_audio_note_filepaths_csv, self.wr_midi)
+        midi_filepaths: List[str] = glob(os.path.join(midi_path, '*.mid'))
+
+        # combine .wav with .midi
+        filepaths_audio_midi: List[Tuple[str, str]] = self._combine_audio_midi(audio_filepaths, midi_filepaths)
+
+        return SchubertWinterreiseDataset.create_audio_tsv(filepaths_audio_midi, self.wr_tsv)
+
+    @staticmethod
+    def _combine_audio_midi(audio_filepaths: List[str], midi_filepaths: List[str]) -> List[Tuple[str, str]]:
+        audio_midi_combination: List[Tuple[str, str]] = []
+        for audio_filepath in audio_filepaths:
+            basename = os.path.basename(audio_filepath).replace('.wav', '')
+            matching_files = [midi_file for midi_file in midi_filepaths if
+                              re.compile(fr".*{basename}.*").search(midi_file)]
+            if len(matching_files) != 1:
+                raise RuntimeError(f"Found different number of matching midi files than expected for: {audio_filepath}")
+            midi_filepath: str = matching_files[0]
+            audio_midi_combination.append((audio_filepath, midi_filepath))
+        return audio_midi_combination
+
+    @staticmethod
+    def load_annotations(annotation_path: str) -> np.ndarray:
+        return SchubertWinterreiseDataset.load_annotations(annotation_path)
+
+    @staticmethod
+    def _save_csv_as_midi(csv_filenames: List[str], midi_path: str):
+        if not os.path.exists(midi_path):
+            os.mkdir(midi_path)
+        for csv_filename in csv_filenames:
+            ann_audio_note: pd.DataFrame = pd.read_csv(csv_filename, sep=';')
+            ann_audio_filepath = os.path.join(midi_path, os.path.basename(csv_filename.replace('.csv', '.mid')))
+
+            if os.path.exists(ann_audio_filepath):
+                continue
+
+            piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
+            piano = pretty_midi.Instrument(program=piano_program)
+
+            for _, row in ann_audio_note.iterrows():
+                onset: float = row['start']
+                offset: float = row['end']
+                pitch: int = int(row['pitch'])
+
+                note = pretty_midi.Note(start=onset, end=offset, pitch=pitch, velocity=64)
+                piano.notes.append(note)
+
+            file: pretty_midi.PrettyMIDI = pretty_midi.PrettyMIDI()
+            file.instruments.append(piano)
+            file.write(ann_audio_filepath)
+        return midi_path
