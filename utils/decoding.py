@@ -1,3 +1,5 @@
+from typing import Tuple, List
+
 import numpy as np
 import torch
 
@@ -61,7 +63,7 @@ def extract_notes(onsets, frames, velocity, onset_threshold=0.5, frame_threshold
     return np.array(pitches), np.array(intervals), np.array(velocities)
 
 
-def notes_to_frames(pitches, intervals, shape):
+def notes_to_frames(pitches, intervals, shape) -> Tuple[np.ndarray, List[np.ndarray]]:
     """
     Takes lists specifying notes sequences and return
 
