@@ -11,13 +11,16 @@ from typing import List, Dict, Tuple
 
 import mir_eval
 import numpy as np
+from scipy.stats import hmean
 from torch import Tensor
 from tqdm import tqdm
 
 import utils.log
 from constants import SAMPLE_RATE, HOP_LENGTH, MIN_MIDI
-from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset
+from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset, NoteTrackingDataset
 from utils import midi, decoding
+
+import data
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -27,18 +30,35 @@ formatter = utils.log.CustomFormatter()
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
+eps = sys.float_info.epsilon
+
+scaling_frame_to_real = HOP_LENGTH / SAMPLE_RATE
+"""
+With scaling_frame_to_real, we can convert from time bin indices back to realtime
+"""
+scaling_real_to_frame = SAMPLE_RATE / HOP_LENGTH
+"""
+With scaling_real_to_frame, we can convert from realtime to bin indices
+"""
+
 LOGGING_FILEPATH = ''
 
 
-def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str, save_path: str = None):
-    dataset_groups: List[str] = dataset_group.split(',')
+def determine_dataset(dataset_parameter_name: str, dataset_group: str | None = None) -> NoteTrackingDataset:
+    dataset_groups: List[str] = dataset_group.split(',') if dataset_group else None
+    dataset_class = getattr(data.dataset, dataset_parameter_name)
 
-    logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_groups}. '
+    kwargs = {'logger_filepath': LOGGING_FILEPATH}
+    if dataset_group is not None:
+        kwargs['groups'] = dataset_groups
+    return dataset_class(**kwargs)
+
+
+def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str | None, save_path: str = None):
+    logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_group}. '
                 f'Storing results in {save_path}.')
 
-    # todo replace this with a determine dataset function
-    # dataset = SchubertWinterreiseDataset(logger_filepath=LOGGING_FILEPATH, groups=['HU33', 'SC06'])
-    dataset = WagnerRingDataset(logger_filepath=LOGGING_FILEPATH, groups=['Furtwangler1953', 'KeilberthFurtw1952', 'Krauss1953'])
+    dataset = determine_dataset(dataset_name, dataset_group)
 
     metrics: defaultdict = defaultdict(list)
 
@@ -61,50 +81,54 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         intervals: List[Tuple] = []
         velocities: List[int] = []
         for start_time, end_time, pitch, velocity in prediction_note_tracking:
-            pitches.append(pitch)
+            pitches.append(int(pitch))
             intervals.append((start_time, end_time))
             velocities.append(velocity)
-
-        scaling_frame_to_real = HOP_LENGTH / SAMPLE_RATE
-        """
-        With scaling_frame_to_real, we can convert from time bin indices back to realtime
-        """
-        scaling_real_to_frame = SAMPLE_RATE / HOP_LENGTH
 
         """
         shape parameters:
         n = number of detected notes
+        m = number of reference notes
         """
 
-        # shape=(n,)
         p_est: np.ndarray = np.array(pitches)
         """
         Array of estimated pitches (in midi values)
+        shape=(n,)
         """
-        # shape=(n,)
-        p_est_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_est])
 
-        # shape=(n,2)
+        p_est_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_est])
+        """
+        shape=(n,)
+        """
+
         i_est: np.ndarray = np.array(intervals)
         """
         List of estimated intervals (onset time, offset time), in real! time
-        """
-        # shape=(n,2)
-        i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).reshape(-1, 2).astype(int)
-        """
-        List of estimated intervals in frame time
+        shape=(n,2)
         """
 
-        # shape=(n,)
         v_est: np.ndarray = np.array(velocities)
+        """
+        shape=(n,)
+        """
 
         del pitches, intervals, velocities, prediction_note_tracking
 
         p_ref: np.ndarray
+        """
+        shape=(n,)
+        """
         i_ref_frames: np.ndarray
+        """
+        shape=(n,2)
+        """
         v_ref: np.ndarray
+        """
+        shape=(n,)
+        """
         p_ref, i_ref_frames, v_ref = decoding.extract_notes(label['onset'], label['frame'], label['velocity'])
-        i_ref = (i_ref_frames * scaling_frame_to_real).reshape(-1, 2)
+        i_ref = (i_ref_frames * scaling_frame_to_real)
         p_ref_hz = np.array([mir_eval.util.midi_to_hz(MIN_MIDI + midi_val) for midi_val in p_ref])
 
         p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz,
@@ -142,6 +166,12 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
         metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
 
+        frame_metrics = evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est)
+        for key, loss in frame_metrics.items():
+            metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
+        metrics['metric/frame/f1'].append(
+            hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps)
+
         del i_ref, i_est, p_est, p_ref, p_est_hz, p_ref_hz
 
     total_eval_str: str = ''
@@ -158,12 +188,26 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
             f.write(total_eval_str)
 
 
+def evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est):
+    p_ref_min_midi = np.array([x + MIN_MIDI for x in p_ref])
+    t_ref, f_ref = decoding.notes_to_frames(p_ref_min_midi, i_ref_frames, label['frame'].shape)
+
+    # shape=(n,2)
+    i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).astype(int)
+    """
+    List of estimated intervals in frame time, length n is the number of estimated notes
+    """
+    t_est, f_est = decoding.notes_to_frames(p_est, i_est_frames, label['frame'].shape)
+
+    return mir_eval.multipitch.evaluate(t_ref, f_ref, t_est, f_est)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('predictions_dir', type=str)
     parser.add_argument('dataset_name', nargs='?', default='default',
                         help='The dataset which the predictions are evaluated on.')
-    parser.add_argument('dataset_group', nargs='?', default='',
+    parser.add_argument('dataset_group', nargs='?', default=None,
                         help='Comma-separated dataset groups which we evaluate on.')
     parser.add_argument('--save-path', default=None)
     args: argparse.Namespace = parser.parse_args()
