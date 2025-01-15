@@ -314,7 +314,7 @@ class WagnerRingDataset(NoteTrackingDataset):
         """
         :return: List of audio filepath with tsv filepath
         """
-        logger.info(f"Loading Files for group {group}")
+        logger.info(f"Loading Files for group {group}, searching in {self.wr_audio_wav}")
         audio_filepaths: List[str] = SchubertWinterreiseDataset.get_filepaths_for_group(self.wr_audio_wav, group)
         if len(audio_filepaths) == 0:
             raise RuntimeError(f'Expected files for group {group}, found nothing.')
