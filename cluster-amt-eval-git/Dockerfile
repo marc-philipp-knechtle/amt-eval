@@ -9,10 +9,10 @@ RUN apt-get install -y git
 
 WORKDIR /workspace
 
-RUN git clone https://github.com/marc-philipp-knechtle/amt-eval.git
-
 RUN conda install pip
 RUN conda install GitPython
-RUN pip install -r amt-eval/cluster-amt-eval-git/requirements.txt
+
+COPY cluster-evaluation/requirements.txt .
+RUN pip install -r /workspace/requirements.txt
 
 RUN mkdir /tmp/numba_cache & chmod 777 /tmp/numba_cache & NUMBA_CACHE_DIR=/tmp/numba_cache
