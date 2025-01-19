@@ -191,6 +191,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
 
 
 def evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est):
+    logger.info(f'Evaluating frames for {str(label["path"])}')
     p_ref_min_midi = np.array([x + MIN_MIDI for x in p_ref])
     t_ref, f_ref = decoding.notes_to_frames(p_ref_min_midi, i_ref_frames, label['frame'].shape)
 
