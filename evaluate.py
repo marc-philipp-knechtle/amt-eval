@@ -44,7 +44,7 @@ With scaling_real_to_frame, we can convert from realtime to bin indices
 LOGGING_FILEPATH = ''
 
 
-def determine_dataset(dataset_parameter_name: str, dataset_group: str | None = None) -> NoteTrackingDataset:
+def determine_dataset(dataset_parameter_name: str, dataset_group: str = None) -> NoteTrackingDataset:
     dataset_groups: List[str] = dataset_group.split(',') if dataset_group else None
     dataset_class = getattr(data.dataset, dataset_parameter_name)
 
@@ -54,7 +54,7 @@ def determine_dataset(dataset_parameter_name: str, dataset_group: str | None = N
     return dataset_class(**kwargs)
 
 
-def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str | None, save_path: str = None):
+def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str, save_path: str = None):
     logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_group}. '
                 f'Storing results in {save_path}.')
 
@@ -73,8 +73,10 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         if len(matching_predictions) != 1:
             raise RuntimeError(
                 f'Found different amount of predictions for label {audio_wav_name}. '
-                f'Expected 1, found {len(matching_predictions)}.')
+                f'Expected 1, found {len(matching_predictions)}.'
+                f'length of total predictions: {len(predictions_filepaths)}')
         prediction_filepath = matching_predictions[0]
+        logger.info(f'Evaluating audio wave {audio_wav_name} with prediction {prediction_filepath}.')
         prediction_note_tracking: np.ndarray = midi.parse_midi_note_tracking(prediction_filepath)
 
         pitches: List[int] = []
@@ -102,7 +104,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         shape=(n,)
         """
 
-        i_est: np.ndarray = np.array(intervals)
+        i_est: np.ndarray = np.array(intervals).reshape(-1, 2)
         """
         List of estimated intervals (onset time, offset time), in real! time
         shape=(n,2)
@@ -128,7 +130,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         shape=(n,)
         """
         p_ref, i_ref_frames, v_ref = decoding.extract_notes(label['onset'], label['frame'], label['velocity'])
-        i_ref = (i_ref_frames * scaling_frame_to_real)
+        i_ref = (i_ref_frames * scaling_frame_to_real).reshape(-1, 2)
         p_ref_hz = np.array([mir_eval.util.midi_to_hz(MIN_MIDI + midi_val) for midi_val in p_ref])
 
         p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz,
@@ -166,11 +168,11 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
         metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
 
-        frame_metrics = evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est)
-        for key, loss in frame_metrics.items():
-            metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
-        metrics['metric/frame/f1'].append(
-            hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps)
+        # frame_metrics = evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est)
+        # for key, loss in frame_metrics.items():
+        #     metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
+        # metrics['metric/frame/f1'].append(
+        #     hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps)
 
         del i_ref, i_est, p_est, p_ref, p_est_hz, p_ref_hz
 
@@ -193,7 +195,7 @@ def evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est):
     t_ref, f_ref = decoding.notes_to_frames(p_ref_min_midi, i_ref_frames, label['frame'].shape)
 
     # shape=(n,2)
-    i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).astype(int)
+    i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).astype(int).reshape(-1, 2)
     """
     List of estimated intervals in frame time, length n is the number of estimated notes
     """
