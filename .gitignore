@@ -2,6 +2,8 @@ datasets
 # used as the default directory for runs
 runs
 cluster-evaluation
+cluster-amt-eval-git/deploy-cluster-amt-eval-git.sh
+cluster-amt-eval-git/k8s-cluster-amt-eval-git.yaml
 
 .idea
 .vscode
