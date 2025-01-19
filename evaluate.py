@@ -168,11 +168,11 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
         metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
 
-        # frame_metrics = evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est)
-        # for key, loss in frame_metrics.items():
-        #     metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
-        # metrics['metric/frame/f1'].append(
-        #     hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps)
+        frame_metrics = evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est)
+        for key, loss in frame_metrics.items():
+            metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
+        metrics['metric/frame/f1'].append(
+            hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps)
 
         del i_ref, i_est, p_est, p_ref, p_est_hz, p_ref_hz
 
