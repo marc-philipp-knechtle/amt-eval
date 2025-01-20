@@ -58,7 +58,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
     logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_group}. '
                 f'Storing results in {save_path}.')
 
-    dataset = determine_dataset(dataset_name, dataset_group)
+    dataset: NoteTrackingDataset = determine_dataset(dataset_name, dataset_group)
 
     metrics: defaultdict = defaultdict(list)
 
