@@ -52,7 +52,7 @@ class NoteTrackingDataset(Dataset):
             logger.addHandler(file_handler)
 
         logger.info(f"Loading {len(self.groups)} group{'s' if len(self.groups) > 1 else ''} "
-              f"of {self.__class__.__name__} at {self.path}")
+                    f"of {self.__class__.__name__} at {self.path}")
 
         for group in self.groups:
             input_file: Tuple[str, str]
@@ -245,7 +245,7 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         for audio_filepath, midi_filepath in filepaths_audio_midi:
             tsv_filepath: str = os.path.join(tsv_dir, os.path.basename(midi_filepath).replace('.mid', '.tsv'))
             if not os.path.exists(tsv_filepath):
-                midi.create_tsv_from_midi(midi_filepath, tsv_filepath)
+                midi.create_nt_tsv_from_midi(midi_filepath, tsv_filepath)
             filepaths_audio_tsv.append((audio_filepath, tsv_filepath))
         return filepaths_audio_tsv
 
@@ -374,3 +374,69 @@ class WagnerRingDataset(NoteTrackingDataset):
             file.instruments.append(piano)
             file.write(ann_audio_filepath)
         return midi_path
+
+
+class Bach10Dataset(NoteTrackingDataset):
+    """
+    The Bach10 dataset matches SWD and WR in terms of audio structure.
+    The Bach10 dataset also contains instrument specific annotations and can be used therefore as a Note Streaming
+    dataset too.
+    """
+
+    bach10_midi: str
+    bach10_csv: str
+    bach10_tsv: str
+    bach10_audio_wav: str
+
+    def __init__(self, path='datasets/Bach10', groups=None, logger_filepath: str = None):
+        # underscore = directories are computationally created and can be deleted without worrying
+        self.bach10_midi = os.path.join(path, '_ann_audio_note_midi')
+        self.bach10_csv = os.path.join(path, 'ann_audio_pitch_CSV')
+        self.bach10_tsv = os.path.join(path, '_ann_audio_note_tsv')
+        self.bach10_audio_wav = os.path.join(path, 'audio_wav_44100_mono')
+
+        super().__init__(path, groups, logger_filepath)
+
+    @classmethod
+    def available_groups(cls) -> List[str]:
+        """
+        :return: just one group because Bach10 has no different groups.
+        """
+        return ["Bach10"]
+
+    def get_files(self, group: str) -> List[Tuple[str, str]]:
+        """
+        :return: List of Tuple[audio_filename.wav, midi_filename.wav]
+        """
+        if group != "Bach10":
+            raise RuntimeError(
+                f'Group {group} not found. Bach10 supports only one single group. (specified by Bach10 group).')
+        logger.info(f"Loading Files for group {group}, searching in {self.bach10_audio_wav}")
+
+        audio_filepaths: List[str] = glob(os.path.join(self.bach10_audio_wav, '*.wav'), recursive=False)
+        if len(audio_filepaths) == 0:
+            raise RuntimeError(f'Expected files for group {group}, found nothing.')
+
+        ann_audio_note_filepaths_csv: List[str] = glob(os.path.join(self.bach10_csv, '*.csv'))
+        assert len(ann_audio_note_filepaths_csv) > 0
+
+        # save csv as midi
+        midi_path = midi.save_csv_as_midi(ann_audio_note_filepaths_csv, self.bach10_midi)
+        midi_filepaths: List[str] = glob(os.path.join(midi_path, '*.mid'))
+
+        # combine .wav with .mid
+        filepaths_audio_midi: List[Tuple[str, str]] = self._combine_audio_midi(audio_filepaths, midi_filepaths)
+
+        return SchubertWinterreiseDataset.create_audio_tsv(filepaths_audio_midi, self.bach10_tsv)
+
+
+    @staticmethod
+    def _combine_audio_midi(audio_filepaths: List[str], midi_filepaths: List[str]) -> List[Tuple[str, str]]:
+
+        print('asdf')
+
+    @staticmethod
+    def load_annotations(annotation_path: str) -> np.ndarray:
+        return SchubertWinterreiseDataset.load_annotations(annotation_path)
+
+    ...
