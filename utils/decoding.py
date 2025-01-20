@@ -102,10 +102,10 @@ def note_to_multipitch_realtime(pitches: np.ndarray, intervals: np.ndarray, shap
     Theoretically it's no issue but with larger files, they have hardcoded a limit where it's not possible anymore to
     calculate metrics.
 
-    :param pitches:
-    :param intervals:
-    :param shape:
-    :param scaling_frame_to_real:
+    :param pitches: ndarray of pitch values in midi format, shape(n,1)
+    :param intervals: onset and offset time specified for each pitch value, shape(n,2)
+    :param shape: frametime shape, this is required because of the further processing
+    :param scaling_frame_to_real: scaling value.
 
     :return: time_seconds, freqs
     """
