@@ -199,7 +199,6 @@ def evaluate_note_based_mpe(label, p_ref: np.ndarray, i_ref_frames: np.ndarray, 
     :param p_est: estimated pitch values, shape(m,1) (m=number of detected notes)
     :param i_est: estimated intervals, shape(m,2)
     """
-    logger.info(f'Evaluating frames for {str(label["path"])}')
     p_ref_min_midi = np.array([x + MIN_MIDI for x in p_ref])
     t_ref, f_ref = decoding.note_to_multipitch_realtime(p_ref_min_midi, i_ref_frames, label['frame'].shape,
                                                         scaling_frame_to_real)
