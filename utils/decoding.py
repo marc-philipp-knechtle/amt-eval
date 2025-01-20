@@ -1,5 +1,6 @@
 from typing import Tuple, List
 
+import mir_eval.util
 import numpy as np
 import torch
 
@@ -69,14 +70,14 @@ def notes_to_frames(pitches, intervals, shape) -> Tuple[np.ndarray, List[np.ndar
 
     Parameters
     ----------
-    pitches: list of pitch bin indices
-    intervals: list of [onset, offset] ranges of bin indices
+    pitches: list of midi pitches
+    intervals: list of [onset, offset] time for each pitch
     shape: the shape of the original piano roll, [n_frames, n_bins]
 
     Returns
     -------
-    time: np.ndarray containing the frame indices
-    freqs: list of np.ndarray, each containing the frequency bin indices
+    time: np.ndarray containing the frame indices, shape(n_frames,1)
+    freqs: list of np.ndarray, each containing the frequency bin indices, shape(n_frames,[list of frequencies])
     """
     roll = np.zeros(tuple(shape))
     for pitch, (onset, offset) in zip(pitches, intervals):
@@ -87,3 +88,29 @@ def notes_to_frames(pitches, intervals, shape) -> Tuple[np.ndarray, List[np.ndar
     time = np.arange(roll.shape[0])
     freqs = [roll[t, :].nonzero()[0] for t in time]
     return time, freqs
+
+
+def note_to_multipitch_realtime(pitches: np.ndarray, intervals: np.ndarray, shape: Tuple,
+                                scaling_frame_to_real: float) -> Tuple[np.ndarray, List[np.ndarray]]:
+    """
+    Required parameters for mir_eval.multipitch:
+    ref_time = reference time stamps in seconds, shape(n,1) = list of timestamps realtime!
+    ref_freqs = reference frequencies in Hz, list of np.ndarray = list of active frequencies for each timestamp
+
+    This method is required because the original metric computation does use realtime for the evaluation.
+    This is an issue with mir_eval because they expect realtime, not frame time intervals.
+    Theoretically it's no issue but with larger files, they have hardcoded a limit where it's not possible anymore to
+    calculate metrics.
+
+    :param pitches:
+    :param intervals:
+    :param shape:
+    :param scaling_frame_to_real:
+
+    :return: time_seconds, freqs
+    """
+
+    time, active_midis = notes_to_frames(pitches, intervals, shape)
+    time_seconds = time * scaling_frame_to_real
+    freqs = [mir_eval.util.midi_to_hz(midis) for midis in active_midis]
+    return time_seconds, freqs

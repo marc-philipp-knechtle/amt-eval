@@ -120,6 +120,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         p_ref: np.ndarray
         """
         shape=(n,)
+        Array of reference pitches (in midi values)
         """
         i_ref_frames: np.ndarray
         """
@@ -168,7 +169,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
         metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
 
-        frame_metrics = evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est)
+        frame_metrics = evaluate_note_based_mpe(label, p_ref, i_ref_frames, p_est, i_est)
         for key, loss in frame_metrics.items():
             metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
         metrics['metric/frame/f1'].append(
@@ -190,17 +191,26 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
             f.write(total_eval_str)
 
 
-def evaluate_frames(label, p_ref, i_ref_frames, p_est, i_est):
+def evaluate_note_based_mpe(label, p_ref: np.ndarray, i_ref_frames: np.ndarray, p_est: np.ndarray, i_est: np.ndarray):
+    """
+    :param label: ...
+    :param p_ref: pitch values, shape(n,)
+    :param i_ref_frames: intervals in frames, for each pitch, shape(n,2)
+    :param p_est: estimated pitch values, shape(m,1) (m=number of detected notes)
+    :param i_est: estimated intervals, shape(m,2)
+    """
     logger.info(f'Evaluating frames for {str(label["path"])}')
     p_ref_min_midi = np.array([x + MIN_MIDI for x in p_ref])
-    t_ref, f_ref = decoding.notes_to_frames(p_ref_min_midi, i_ref_frames, label['frame'].shape)
+    t_ref, f_ref = decoding.note_to_multipitch_realtime(p_ref_min_midi, i_ref_frames, label['frame'].shape,
+                                                        scaling_frame_to_real)
 
-    # shape=(n,2)
     i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).astype(int).reshape(-1, 2)
     """
     List of estimated intervals in frame time, length n is the number of estimated notes
+    shape=(m,2)
     """
-    t_est, f_est = decoding.notes_to_frames(p_est, i_est_frames, label['frame'].shape)
+    t_est, f_est = decoding.note_to_multipitch_realtime(p_est, i_est_frames, label['frame'].shape,
+                                                        scaling_frame_to_real)
 
     return mir_eval.multipitch.evaluate(t_ref, f_ref, t_est, f_est)
 
