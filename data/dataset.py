@@ -421,22 +421,15 @@ class Bach10Dataset(NoteTrackingDataset):
         assert len(ann_audio_note_filepaths_csv) > 0
 
         # save csv as midi
-        midi_path = midi.save_csv_as_midi(ann_audio_note_filepaths_csv, self.bach10_midi)
+        midi_path = midi.save_nt_csv_as_midi(ann_audio_note_filepaths_csv, self.bach10_midi)
         midi_filepaths: List[str] = glob(os.path.join(midi_path, '*.mid'))
 
         # combine .wav with .mid
-        filepaths_audio_midi: List[Tuple[str, str]] = self._combine_audio_midi(audio_filepaths, midi_filepaths)
+        filepaths_audio_midi: List[Tuple[str, str]] = WagnerRingDataset._combine_audio_midi(audio_filepaths,
+                                                                                            midi_filepaths)
 
         return SchubertWinterreiseDataset.create_audio_tsv(filepaths_audio_midi, self.bach10_tsv)
-
-
-    @staticmethod
-    def _combine_audio_midi(audio_filepaths: List[str], midi_filepaths: List[str]) -> List[Tuple[str, str]]:
-
-        print('asdf')
 
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
         return SchubertWinterreiseDataset.load_annotations(annotation_path)
-
-    ...
