@@ -12,6 +12,7 @@ dependencies:
     - pytorch
     - torchvision
     - torchaudio
+    - tqdm
     - pytorch-cuda=12.4
     - pretty_midi
     - pip:
