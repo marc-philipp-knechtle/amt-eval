@@ -433,3 +433,43 @@ class Bach10Dataset(NoteTrackingDataset):
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
         return SchubertWinterreiseDataset.load_annotations(annotation_path)
+
+
+class PhenicxAnechoicDataset(NoteTrackingDataset):
+    """
+    This implementation currently does not consider the option of having single instruments as groups.
+    """
+    phenicx_anechoic_midi: str
+    phenicx_anechoic_tsv: str
+    phenicx_anechoic_mixaudio_wav: str
+    phenicx_anechoic_annotations: str
+    phenicx_anechoic_annotations_tsv: str
+
+    def __init__(self, path='datasets/PHENICX-Anechoic', groups=None, logger_filepath: str = None):
+        self.phenicx_anechoic_midi = os.path.join(path, '')
+        self.phenicx_anechoic_mixaudio_wav = os.path.join(path, 'mixaudio_wav_22050_mono')
+        self.phenicx_anechoic_annotations = os.path.join(path, 'annotations')
+        self.phenicx_anechoic_annotations_tsv = os.path.join(path, '_ann_audio_note_tsv')
+
+        super().__init__(path, groups, logger_filepath)
+
+    @classmethod
+    def available_groups(cls) -> List[str]:
+        """
+        It would be also possible to implement instrument-based groups
+        """
+        return ['beethoven', 'bruckner', 'mahler', 'mozart']
+
+    def get_files(self, group: str) -> List[Tuple[str, str]]:
+        logger.info(f'Loading files for group {group}, searching in {self.phenicx_anechoic_mixaudio_wav}')
+
+        audio_filepath: str = os.path.join(self.phenicx_anechoic_mixaudio_wav, group + '.wav')
+        midi_path: str = os.path.join(self.phenicx_anechoic_annotations, group, 'all.mid')
+
+        return SchubertWinterreiseDataset.create_audio_tsv([(audio_filepath, midi_path)],
+                                                           self.phenicx_anechoic_annotations_tsv)
+
+    @staticmethod
+    def load_annotations(annotation_path: str) -> np.ndarray:
+        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
+
