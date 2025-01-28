@@ -57,7 +57,7 @@ class NoteTrackingDataset(Dataset):
         for group in self.groups:
             input_file: Tuple[str, str]
             """
-            [str, str] = ['path to audio', 'path to annotation']
+            [str, str] = ['path to audio', 'path to tsv annotation']
             """
             for input_file in self.get_files(group):
                 self.data.append(self.load(input_file[0], input_file[1]))
