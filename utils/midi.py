@@ -81,7 +81,7 @@ def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarra
     return np.array(notes)
 
 
-def save_midi(path: str, pitches: np.ndarray, intervals: np.ndarray, velocities) -> pretty_midi.PrettyMIDI:
+def save_midi(path: str, pitches: np.ndarray, intervals: np.ndarray, velocities: np.ndarray) -> pretty_midi.PrettyMIDI:
     """
     Save extracted notes as a MIDI file
     Parameters
