@@ -9,6 +9,7 @@ dependencies:
     - pandas
     - python==3.10
     - pip
+    - pytest
     - pytorch
     - torchvision
     - torchaudio
