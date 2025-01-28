@@ -467,9 +467,8 @@ class PhenicxAnechoicDataset(NoteTrackingDataset):
         midi_path: str = os.path.join(self.phenicx_anechoic_annotations, group, 'all.mid')
 
         return SchubertWinterreiseDataset.create_audio_tsv([(audio_filepath, midi_path)],
-                                                           self.phenicx_anechoic_annotations_tsv)
+                                                           os.path.join(self.phenicx_anechoic_annotations_tsv, group))
 
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
         return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
-
