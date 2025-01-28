@@ -245,7 +245,7 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         for audio_filepath, midi_filepath in filepaths_audio_midi:
             tsv_filepath: str = os.path.join(tsv_dir, os.path.basename(midi_filepath).replace('.mid', '.tsv'))
             if not os.path.exists(tsv_filepath):
-                midi.create_nt_tsv_from_midi(midi_filepath, tsv_filepath)
+                midi.save_midi_as_tsv(midi_filepath, tsv_filepath)
             filepaths_audio_tsv.append((audio_filepath, tsv_filepath))
         return filepaths_audio_tsv
 

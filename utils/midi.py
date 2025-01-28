@@ -219,7 +219,7 @@ def save_csv_as_midi(csv_filenames: List[str], path: str, instrument_arg: str = 
     return path
 
 
-def create_nt_tsv_from_midi(midi_filepath: str, tsv_filepath: str):
+def save_midi_as_tsv(midi_filepath: str, tsv_filepath: str):
     midi_filename: str = os.path.basename(midi_filepath)
     logging.debug(f'Parsing midi file: {os.path.basename(midi_filename)}.')
     midifile: np.ndarray = parse_midi_note_tracking(midi_filepath)
