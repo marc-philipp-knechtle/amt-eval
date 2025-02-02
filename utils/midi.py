@@ -1,5 +1,4 @@
 import logging
-import math
 import multiprocessing
 import os.path
 import sys
@@ -9,9 +8,7 @@ import mido
 import pandas as pd
 import pretty_midi
 import numpy as np
-import collections
 
-import scipy.io.wavfile
 from joblib import Parallel, delayed
 from mir_eval.util import hz_to_midi
 from tqdm import tqdm
@@ -29,11 +26,10 @@ def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarra
     midi = mido.MidiFile(path)
 
     if len(midi.tracks) > 2:
-        logging.warning('Multiple midi tracks detected. Found Tracks:')
+        logging.warning(f'Multiple midi tracks detected in {path}. Found Tracks:')
         for track in midi.tracks:
-            logging.warning(track.name)
-        logging.warning('The Processing of these files handles all tracks as part of the piano part.\n'
-                        'There is no differentiation.')
+            logging.warning(track.name if track.name != '' else 'Empty Track Name')
+        logging.warning('Because this evaluation focuses on note tracking, we handle all the midi tracks as the same.')
 
     time = 0
     sustain = False
