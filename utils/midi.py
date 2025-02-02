@@ -74,6 +74,10 @@ def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarra
             offset = next(n for n in events[offset['index'] + 1:]
                           if n['type'] == 'sustain_off' or n['note'] == onset['note'] or n is events[-1])
 
+        # This hints to some format error -> midi is not correctly stored, start is later than end
+        if onset['time'] >= offset['time']:
+            continue
+
         # cast to int to ensure that it's a midi value
         note: Tuple = (onset['time'], offset['time'], int(onset['note']), onset['velocity'])
         notes.append(note)
