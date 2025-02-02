@@ -1,3 +1,4 @@
+import logging
 from typing import Tuple, List
 
 import mir_eval.util
@@ -83,10 +84,10 @@ def notes_to_frames(pitches_midi, intervals) -> Tuple[np.ndarray, List[np.ndarra
     try:
         roll = np.zeros((max(max(row) for row in intervals), constants.MAX_MIDI))
     except ValueError:
-        print('Encountered Value Error while trying to calculate the maximum')
-        for row in intervals:
-            print(f'finding max of {row}')
-            print(f'max: {max(row)}')
+        logging.warning(f'Received empty list of intervals. The reason for this might be an empty midi file. '
+                        f'Please check manually')
+        roll = np.zeros((constants.MAX_MIDI, 0))
+
     for pitch, (onset, offset) in zip(pitches_midi, intervals):
         roll[onset:offset, pitch] = 1
 
