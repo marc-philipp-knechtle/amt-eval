@@ -170,7 +170,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
         metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
 
-        frame_metrics = evaluate_note_based_mpe(label, p_ref, i_ref, p_est, i_est)
+        frame_metrics = evaluate_note_based_mpe(p_ref, i_ref, p_est, i_est)
         for key, loss in frame_metrics.items():
             metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
         metrics['metric/frame/f1'].append(
@@ -192,9 +192,8 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
             f.write(total_eval_str)
 
 
-def evaluate_note_based_mpe(label, p_ref: np.ndarray, i_ref: np.ndarray, p_est: np.ndarray, i_est: np.ndarray):
+def evaluate_note_based_mpe(p_ref: np.ndarray, i_ref: np.ndarray, p_est: np.ndarray, i_est: np.ndarray):
     """
-    :param label: ...
     :param p_ref: pitch values, shape(n,)
     :param i_ref: reference intervals, shape(n,2)
     :param p_est: estimated pitch values, shape(m,1) (m=number of detected notes)
