@@ -80,7 +80,13 @@ def notes_to_frames(pitches_midi, intervals) -> Tuple[np.ndarray, List[np.ndarra
     time: np.ndarray containing the frame indices, shape(n_frames,1)
     freqs: list of np.ndarray, each containing the frequency bin indices, shape(n_frames,[list of frequencies])
     """
-    roll = np.zeros((max(max(row) for row in intervals), constants.MAX_MIDI))
+    try:
+        roll = np.zeros((max(max(row) for row in intervals), constants.MAX_MIDI))
+    except ValueError:
+        print('Encountered Value Error while trying to calculate the maximum')
+        for row in intervals:
+            print(f'finding max of {row}')
+            print(f'max: {max(row)}')
     for pitch, (onset, offset) in zip(pitches_midi, intervals):
         roll[onset:offset, pitch] = 1
 
