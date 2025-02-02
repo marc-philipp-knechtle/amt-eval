@@ -385,3 +385,35 @@ class PhenicxAnechoicDataset(NoteTrackingDataset):
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
         return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
+
+
+class RwcDataset(NoteTrackingDataset):
+    rwc_wav: str
+    rwc_midi_warped: str
+
+    def __init__(self, path='datasets/RWC', groups=None, logger_filepath: str = None):
+        self.rwc_wav = os.path.join(path, 'wav_22050_mono')
+        self.rwc_midi_warped = os.path.join(path, 'MIDI_warped')
+
+        super().__init__(path, groups, logger_filepath)
+
+    @classmethod
+    def available_groups(cls) -> List[str]:
+        return ['rwc']
+
+    def get_files(self, group: str) -> List[Tuple[str, str]]:
+        logger.info(f'Loading files for group {group}, searching in {self.rwc_wav}')
+        audio_filepaths: List[str] = glob(os.path.join(self.rwc_wav, '*.wav'), recursive=False)
+        if len(audio_filepaths) == 0:
+            raise RuntimeError(f'Expected files for group {group}, found nothing.')
+
+        midi_filepaths: List[str] = glob(os.path.join(self.rwc_midi_warped, '*.mid'), recursive=False)
+
+        # combine .wav with .mid
+        filepaths_audio_midi: List[Tuple[str, str]] = WagnerRingDataset._combine_audio_midi(audio_filepaths,
+                                                                                            midi_filepaths)
+        return filepaths_audio_midi
+
+    @staticmethod
+    def load_annotations(annotation_path: str) -> np.ndarray:
+        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
