@@ -16,7 +16,7 @@ from torch import Tensor
 from tqdm import tqdm
 
 import utils.log
-from constants import SAMPLE_RATE, HOP_LENGTH, MIN_MIDI
+from constants import SAMPLE_RATE, HOP_LENGTH
 from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset, NoteTrackingDataset
 from utils import midi, decoding
 
@@ -65,9 +65,9 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
     predictions_filepaths: List[str] = glob(os.path.join(predictions_dir, '*.mid'))
 
     # path, audio, label, velocity, onset, offset, frame
-    label: Dict[str, Tensor | str]
+    label: Tuple[str, str]
     for label in tqdm(dataset):
-        audio_wav_name = os.path.basename(label['path']).replace('.wav', '')
+        audio_wav_name = os.path.basename(label[0]).replace('.wav', '')
         matching_predictions = [prediction_file for prediction_file in predictions_filepaths if
                                 re.compile(fr".*{re.escape(audio_wav_name)}.*").search(prediction_file)]
         if len(matching_predictions) != 1:
@@ -80,59 +80,60 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         prediction_note_tracking: np.ndarray = midi.parse_midi_note_tracking(prediction_filepath)
 
         pitches: List[int] = []
-        intervals: List[Tuple] = []
+        intervals: List[Tuple[float, float]] = []
         velocities: List[int] = []
         for start_time, end_time, pitch, velocity in prediction_note_tracking:
+            if start_time == end_time:
+                continue
+
             pitches.append(int(pitch))
-            intervals.append((start_time, end_time))
+            intervals.append((float(start_time), float(end_time)))
             velocities.append(velocity)
 
-        """
-        shape parameters:
-        n = number of detected notes
-        m = number of reference notes
-        """
 
         p_est: np.ndarray = np.array(pitches)
         """
         Array of estimated pitches (in midi values)
         shape=(n,)
         """
-
         p_est_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_est])
         """
         shape=(n,)
         """
-
         i_est: np.ndarray = np.array(intervals).reshape(-1, 2)
         """
         List of estimated intervals (onset time, offset time), in real! time
         shape=(n,2)
         """
-
         v_est: np.ndarray = np.array(velocities)
         """
         shape=(n,)
         """
-
         del pitches, intervals, velocities, prediction_note_tracking
 
-        p_ref: np.ndarray
+        label_note_tracking: np.ndarray = midi.parse_midi_note_tracking(label[1])
+        pitches_ref: List[int] = []
+        intervals_ref: List[Tuple[float, float]] = []
+        velocities_ref: List[int] = []
+        for start_time, end_time, pitch, velocity in label_note_tracking:
+            pitches_ref.append(int(pitch))
+            intervals_ref.append((float(start_time), float(end_time)))
+            velocities_ref.append(velocity)
+        p_ref: np.ndarray = np.array(pitches_ref)
         """
-        shape=(n,)
+        shape=(m,)
         Array of reference pitches (in midi values)
         """
-        i_ref_frames: np.ndarray
+        p_ref_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_ref])
+        i_ref: np.ndarray = np.array(intervals_ref).reshape(-1, 2)
         """
-        shape=(n,2)
+        shape=(m,2)
         """
-        v_ref: np.ndarray
+        v_ref: np.ndarray = np.array(velocities_ref)
         """
-        shape=(n,)
+        shape=(m,)
         """
-        p_ref, i_ref_frames, v_ref = decoding.extract_notes(label['onset'], label['frame'], label['velocity'])
-        i_ref = (i_ref_frames * scaling_frame_to_real).reshape(-1, 2)
-        p_ref_hz = np.array([mir_eval.util.midi_to_hz(MIN_MIDI + midi_val) for midi_val in p_ref])
+        del pitches_ref, intervals_ref, velocities_ref
 
         p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz,
                                                                         i_est, p_est_hz,
@@ -169,7 +170,7 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
         metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
         metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
 
-        frame_metrics = evaluate_note_based_mpe(label, p_ref, i_ref_frames, p_est, i_est)
+        frame_metrics = evaluate_note_based_mpe(label, p_ref, i_ref, p_est, i_est)
         for key, loss in frame_metrics.items():
             metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
         metrics['metric/frame/f1'].append(
@@ -191,25 +192,24 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
             f.write(total_eval_str)
 
 
-def evaluate_note_based_mpe(label, p_ref: np.ndarray, i_ref_frames: np.ndarray, p_est: np.ndarray, i_est: np.ndarray):
+def evaluate_note_based_mpe(label, p_ref: np.ndarray, i_ref: np.ndarray, p_est: np.ndarray, i_est: np.ndarray):
     """
     :param label: ...
     :param p_ref: pitch values, shape(n,)
-    :param i_ref_frames: intervals in frames, for each pitch, shape(n,2)
+    :param i_ref: reference intervals, shape(n,2)
     :param p_est: estimated pitch values, shape(m,1) (m=number of detected notes)
     :param i_est: estimated intervals, shape(m,2)
     """
-    p_ref_min_midi = np.array([x + MIN_MIDI for x in p_ref])
-    t_ref, f_ref = decoding.note_to_multipitch_realtime(p_ref_min_midi, i_ref_frames, label['frame'].shape,
-                                                        scaling_frame_to_real)
-
     i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).astype(int).reshape(-1, 2)
+    i_ref_frames: np.ndarray = (i_ref * scaling_real_to_frame).astype(int).reshape(-1, 2)
+
+    p_ref_min_midi = np.array([x for x in p_ref])
+    t_ref, f_ref = decoding.note_to_multipitch_realtime(p_ref_min_midi, i_ref_frames, scaling_frame_to_real)
     """
     List of estimated intervals in frame time, length n is the number of estimated notes
     shape=(m,2)
     """
-    t_est, f_est = decoding.note_to_multipitch_realtime(p_est, i_est_frames, label['frame'].shape,
-                                                        scaling_frame_to_real)
+    t_est, f_est = decoding.note_to_multipitch_realtime(p_est, i_est_frames, scaling_frame_to_real)
 
     return mir_eval.multipitch.evaluate(t_ref, f_ref, t_est, f_est)
 

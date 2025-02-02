@@ -6,16 +6,13 @@ from abc import abstractmethod
 from glob import glob
 from typing import List, Dict, Tuple
 
-import librosa
 import numpy as np
 import pandas as pd
 import pretty_midi
 from torch.utils.data import Dataset
 from torch import Tensor
-import soundfile
 import torch
 
-from constants import SAMPLE_RATE, MAX_MIDI, MIN_MIDI, HOP_LENGTH, HOPS_IN_ONSET, HOPS_IN_OFFSET
 from utils import midi, log
 
 logger = logging.getLogger(__name__)
@@ -39,10 +36,10 @@ class NoteTrackingDataset(Dataset):
     def __init__(self, path: str, groups: List[str] = None, logging_filepath: str = None):
         self.path = path
         self.groups = groups if groups is not None else self.available_groups()
-        self.data: List[Dict[str, Tensor]] = []
+        self.data: List[Tuple[str, str]] = []
         """
         data for this dataset
-        List of Dict[audio_filepath, Tensordata(see function load)]
+        List of Dict[audio_filepath, midi_filepath]
         """
 
         if logging_filepath is not None:
@@ -60,23 +57,10 @@ class NoteTrackingDataset(Dataset):
             [str, str] = ['path to audio', 'path to tsv annotation']
             """
             for input_file in self.get_files(group):
-                self.data.append(self.load(input_file[0], input_file[1]))
+                self.data.append((input_file[0], input_file[1]))
 
-    def __getitem__(self, index):
-        """
-        label = used to store the information efficiently (see load())
-        :return: Dictionary of saved item: path, audio, label, velocity, onset, offset, frame
-        """
-        data: Dict[str, Tensor] = self.data[index]
-        result = (
-            dict(path=data['path'],
-                 audio=data['audio'].to(self.device).float().div_(32768.0),
-                 label=data['label'].to(self.device),
-                 velocity=data['velocity'].to(self.device).float().div_(128.0),
-                 onset=(data['label'].to(self.device) == 3).float(),
-                 offset=(data['label'].to(self.device) == 1).float(),
-                 frame=(data['label'].to(self.device) > 1).float()))
-        return result
+    def __getitem__(self, index: int) -> Tuple[str, str]:
+        return self.data[index]
 
     def __len__(self):
         return len(self.data)
@@ -107,72 +91,6 @@ class NoteTrackingDataset(Dataset):
         :return: annotation as np.ndarray in the form of [onset,offset,pitch,velocity]
         """
         raise NotImplementedError
-
-    def load(self, audio_path: str, annotation_path: str) -> Dict[str, Tensor]:
-        """
-        load an audio track and the corresponding annotations
-
-        Returns
-        -------
-            A dictionary containing the following items:
-
-            path: str
-                the path to the audio file
-
-            audio: torch.ShortTensor, shape = [num_frames]
-                the raw waveform
-
-            label: torch.ByteTensor, shape = [num_steps, midi_bins]
-                a matrix that contains the onset/offset/frame labels encoded as:
-                3 = onset, 2 = frames after onset, 1 = offset, 0 = all else
-
-            velocity: torch.ByteTensor, shape = [num_steps, midi_bins]
-                a matrix that contains MIDI velocity values at the frame locations
-        """
-        saved_data_path = audio_path.replace('.flac', '.pt').replace('.wav', '.pt')
-        if os.path.exists(saved_data_path):
-            return torch.load(saved_data_path)
-
-        audio: np.ndarray
-        audio, sr = soundfile.read(audio_path, dtype='int16', always_2d=True)
-        # Conversion to float see:
-        # https://stackoverflow.com/questions/58810035/converting-audio-files-between-pydub-and-librosa
-        audio: np.ndarray = np.array(audio).astype(np.float32)
-        # converting from 2D representations (left and right channel) to 1D
-        audio = audio.T
-        audio = audio[0]
-
-        if sr != SAMPLE_RATE:
-            logger.info(f"Sample Rate Mismatch: resampling file: {audio_path}, from {sr} to default: {SAMPLE_RATE}")
-            audio = librosa.resample(audio, orig_sr=sr, target_sr=SAMPLE_RATE)
-
-        audio_tensor = torch.ShortTensor(audio)
-        audio_length = len(audio_tensor)
-
-        n_keys = MAX_MIDI - MIN_MIDI + 1
-        n_steps = (audio_length - 1) // HOP_LENGTH + 1
-
-        label = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-        velocity = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-
-        annotations: np.ndarray = self.load_annotations(annotation_path)
-
-        for onset, offset, note, vel in annotations:
-            left = int(round(onset * SAMPLE_RATE / HOP_LENGTH))
-            onset_right = min(n_steps, left + HOPS_IN_ONSET)
-            frame_right = int(round(offset * SAMPLE_RATE / HOP_LENGTH))
-            frame_right = min(n_steps, frame_right)
-            offset_right = min(n_steps, frame_right + HOPS_IN_OFFSET)
-
-            f = int(note) - MIN_MIDI
-            label[left:onset_right, f] = 3
-            label[onset_right:frame_right, f] = 2
-            label[frame_right:offset_right, f] = 1
-            velocity[left:frame_right, f] = vel
-
-        data: Dict[str, Tensor] = dict(path=audio_path, audio=audio_tensor, label=label, velocity=velocity)
-        torch.save(data, saved_data_path)
-        return data
 
 
 class SchubertWinterreiseDataset(NoteTrackingDataset):
@@ -229,7 +147,8 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         # combine .wav with .midi
         filepaths_audio_midi: List[Tuple[str, str]] = self._combine_audio_midi(audio_filepaths, midi_filepaths)
 
-        return self.create_audio_tsv(filepaths_audio_midi, self.swd_tsv)
+        # return self.create_audio_tsv(filepaths_audio_midi, self.swd_tsv)
+        return filepaths_audio_midi
 
     @staticmethod
     def create_audio_tsv(filepaths_audio_midi: List[Tuple[str, str]], tsv_dir: str) -> List[Tuple[str, str]]:
@@ -329,7 +248,7 @@ class WagnerRingDataset(NoteTrackingDataset):
         # combine .wav with .midi
         filepaths_audio_midi: List[Tuple[str, str]] = self._combine_audio_midi(audio_filepaths, midi_filepaths)
 
-        return SchubertWinterreiseDataset.create_audio_tsv(filepaths_audio_midi, self.wr_tsv)
+        return filepaths_audio_midi
 
     @staticmethod
     def _combine_audio_midi(audio_filepaths: List[str], midi_filepaths: List[str]) -> List[Tuple[str, str]]:
@@ -427,8 +346,7 @@ class Bach10Dataset(NoteTrackingDataset):
         # combine .wav with .mid
         filepaths_audio_midi: List[Tuple[str, str]] = WagnerRingDataset._combine_audio_midi(audio_filepaths,
                                                                                             midi_filepaths)
-
-        return SchubertWinterreiseDataset.create_audio_tsv(filepaths_audio_midi, self.bach10_tsv)
+        return filepaths_audio_midi
 
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
@@ -439,17 +357,12 @@ class PhenicxAnechoicDataset(NoteTrackingDataset):
     """
     This implementation currently does not consider the option of having single instruments as groups.
     """
-    phenicx_anechoic_midi: str
-    phenicx_anechoic_tsv: str
     phenicx_anechoic_mixaudio_wav: str
     phenicx_anechoic_annotations: str
-    phenicx_anechoic_annotations_tsv: str
 
     def __init__(self, path='datasets/PHENICX-Anechoic', groups=None, logger_filepath: str = None):
-        self.phenicx_anechoic_midi = os.path.join(path, '')
         self.phenicx_anechoic_mixaudio_wav = os.path.join(path, 'mixaudio_wav_22050_mono')
         self.phenicx_anechoic_annotations = os.path.join(path, 'annotations')
-        self.phenicx_anechoic_annotations_tsv = os.path.join(path, '_ann_audio_note_tsv')
 
         super().__init__(path, groups, logger_filepath)
 
@@ -466,8 +379,8 @@ class PhenicxAnechoicDataset(NoteTrackingDataset):
         audio_filepath: str = os.path.join(self.phenicx_anechoic_mixaudio_wav, group + '.wav')
         midi_path: str = os.path.join(self.phenicx_anechoic_annotations, group, 'all.mid')
 
-        return SchubertWinterreiseDataset.create_audio_tsv([(audio_filepath, midi_path)],
-                                                           os.path.join(self.phenicx_anechoic_annotations_tsv, group))
+        # For this implementation, we only have one file per group -> this is enough
+        return [(audio_filepath, midi_path)]
 
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
