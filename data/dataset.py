@@ -447,3 +447,33 @@ class TriosDataset(NoteTrackingDataset):
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
         return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
+
+
+class ChoralSingingDataset(NoteTrackingDataset):
+    trios_midi_combined: str
+
+    def __init__(self, path='datasets/ChoralSingingDataset/ChoralSingingDataset', groups=None, logger_filepath: str = None):
+        self.trios_midi_combined = os.path.join(path, '_mix_midi')
+        super().__init__(path, groups, logger_filepath)
+
+    @classmethod
+    def available_groups(cls) -> List[str]:
+        return ['Bruckner_LocusIste', 'Guerrero_NinoDios', 'Traditional_ElRossinyol']
+
+    def get_files(self, group: str) -> List[Tuple[str, str]]:
+        logger.info(f'Loading files for group {group}, searching in {self.path}')
+        audio_dir: str = os.path.join(self.path, 'CSD_' + group, 'mix')
+        audio_filepaths: List[str] = glob(os.path.join(audio_dir, '*.wav'), recursive=False)
+        if len(audio_filepaths) != 1:
+            raise RuntimeError(f'Expected exactly one file for group {group}, found {len(audio_filepaths)} files.')
+
+        midi_filepaths: List[str] = glob(os.path.join(self.path, 'CSD_' + group, 'midi', '*.mid'), recursive=False)
+        if len(midi_filepaths) != 4:
+            raise RuntimeError(f'Expected four midi files for group {group}, found {len(midi_filepaths)} files.')
+        midi_filepath: str = midi.combine_midi_files(midi_filepaths,
+                                                     os.path.join(self.trios_midi_combined, group + '.mid'))
+        return [(audio_filepaths[0], midi_filepath)]
+
+    @staticmethod
+    def load_annotations(annotation_path: str) -> np.ndarray:
+        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
