@@ -150,23 +150,24 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         # return self.create_audio_tsv(filepaths_audio_midi, self.swd_tsv)
         return filepaths_audio_midi
 
-    @staticmethod
-    def create_audio_tsv(filepaths_audio_midi: List[Tuple[str, str]], tsv_dir: str) -> List[Tuple[str, str]]:
-        """
-        Creates .tsv files based on midi files (using midi.create_tsv_from_midi(...))
-        Returns: List[Tuple[str, str]] of audio filepath with tsv filepath
-        """
-        filepaths_audio_tsv: List[Tuple[str, str]] = []
-        audio_filepath: str
-        midi_filepath: str
-        if not os.path.exists(tsv_dir):
-            os.makedirs(tsv_dir)
-        for audio_filepath, midi_filepath in filepaths_audio_midi:
-            tsv_filepath: str = os.path.join(tsv_dir, os.path.basename(midi_filepath).replace('.mid', '.tsv'))
-            if not os.path.exists(tsv_filepath):
-                midi.save_midi_as_tsv(midi_filepath, tsv_filepath)
-            filepaths_audio_tsv.append((audio_filepath, tsv_filepath))
-        return filepaths_audio_tsv
+    # Comment because of removal of previous ML-dependent pipeline
+    # @staticmethod
+    # def create_audio_tsv(filepaths_audio_midi: List[Tuple[str, str]], tsv_dir: str) -> List[Tuple[str, str]]:
+    #     """
+    #     Creates .tsv files based on midi files (using midi.create_tsv_from_midi(...))
+    #     Returns: List[Tuple[str, str]] of audio filepath with tsv filepath
+    #     """
+    #     filepaths_audio_tsv: List[Tuple[str, str]] = []
+    #     audio_filepath: str
+    #     midi_filepath: str
+    #     if not os.path.exists(tsv_dir):
+    #         os.makedirs(tsv_dir)
+    #     for audio_filepath, midi_filepath in filepaths_audio_midi:
+    #         tsv_filepath: str = os.path.join(tsv_dir, os.path.basename(midi_filepath).replace('.mid', '.tsv'))
+    #         if not os.path.exists(tsv_filepath):
+    #             midi.save_midi_as_tsv(midi_filepath, tsv_filepath)
+    #         filepaths_audio_tsv.append((audio_filepath, tsv_filepath))
+    #     return filepaths_audio_tsv
 
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
@@ -413,6 +414,35 @@ class RwcDataset(NoteTrackingDataset):
         filepaths_audio_midi: List[Tuple[str, str]] = WagnerRingDataset._combine_audio_midi(audio_filepaths,
                                                                                             midi_filepaths)
         return filepaths_audio_midi
+
+    @staticmethod
+    def load_annotations(annotation_path: str) -> np.ndarray:
+        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
+
+
+class TriosDataset(NoteTrackingDataset):
+    trios_wav: str
+    trios_midi_combined: str
+
+    def __init__(self, path='datasets/TRIOS', groups=None, logger_filepath: str = None):
+        self.trios_wav = os.path.join(path, 'mix')
+        self.trios_midi_combined = os.path.join(path, '_mix_midi')
+        super().__init__(path, groups, logger_filepath)
+
+    @classmethod
+    def available_groups(cls) -> List[str]:
+        return ['brahms', 'lussier', 'mozart', 'schubert', 'take_five']
+
+    def get_files(self, group: str) -> List[Tuple[str, str]]:
+        logger.info(f'Loading files for group {group}, searching in {self.trios_wav}')
+        audio_filepath: str = os.path.join(self.trios_wav, group + '.wav')
+        if len(audio_filepath) == 0:
+            raise RuntimeError(f'Expected files for group {group}, found nothing.')
+
+        midi_parts_filepaths: List[str] = glob(os.path.join(self.path, group, '*.mid'), recursive=False)
+        midi_filepath: str = midi.combine_midi_files(midi_parts_filepaths,
+                                                     os.path.join(self.trios_midi_combined, group + '.mid'))
+        return [(audio_filepath, midi_filepath)]
 
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
