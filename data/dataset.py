@@ -232,7 +232,7 @@ class WagnerRingDataset(NoteTrackingDataset):
 
     def get_files(self, group: str) -> List[Tuple[str, str]]:
         """
-        :return: List of audio filepath with tsv filepath
+        :return: List of audio filepath with midi filepath
         """
         logger.info(f"Loading Files for group {group}, searching in {self.wr_audio_wav}")
         audio_filepaths: List[str] = SchubertWinterreiseDataset.get_filepaths_for_group(self.wr_audio_wav, group)
