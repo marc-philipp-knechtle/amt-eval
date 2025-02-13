@@ -450,10 +450,10 @@ class TriosDataset(NoteTrackingDataset):
 
 
 class ChoralSingingDataset(NoteTrackingDataset):
-    trios_midi_combined: str
+    csd_midi_combined: str
 
     def __init__(self, path='datasets/ChoralSingingDataset/ChoralSingingDataset', groups=None, logger_filepath: str = None):
-        self.trios_midi_combined = os.path.join(path, '_mix_midi')
+        self.csd_midi_combined = os.path.join(path, '_mix_midi')
         super().__init__(path, groups, logger_filepath)
 
     @classmethod
@@ -471,7 +471,7 @@ class ChoralSingingDataset(NoteTrackingDataset):
         if len(midi_filepaths) != 4:
             raise RuntimeError(f'Expected four midi files for group {group}, found {len(midi_filepaths)} files.')
         midi_filepath: str = midi.combine_midi_files(midi_filepaths,
-                                                     os.path.join(self.trios_midi_combined, group + '.mid'))
+                                                     os.path.join(self.csd_midi_combined, group + '.mid'))
         return [(audio_filepaths[0], midi_filepath)]
 
     @staticmethod
