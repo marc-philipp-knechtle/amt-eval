@@ -305,14 +305,12 @@ class Bach10Dataset(NoteTrackingDataset):
 
     bach10_midi: str
     bach10_csv: str
-    bach10_tsv: str
     bach10_audio_wav: str
 
     def __init__(self, path='datasets/Bach10', groups=None, logger_filepath: str = None):
         # underscore = directories are computationally created and can be deleted without worrying
         self.bach10_midi = os.path.join(path, '_ann_audio_note_midi')
         self.bach10_csv = os.path.join(path, 'ann_audio_pitch_CSV')
-        self.bach10_tsv = os.path.join(path, '_ann_audio_note_tsv')
         self.bach10_audio_wav = os.path.join(path, 'audio_wav_44100_mono')
 
         super().__init__(path, groups, logger_filepath)
@@ -322,23 +320,22 @@ class Bach10Dataset(NoteTrackingDataset):
         """
         :return: just one group because Bach10 has no different groups.
         """
-        return ["Bach10"]
+        return ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
 
     def get_files(self, group: str) -> List[Tuple[str, str]]:
         """
         :return: List of Tuple[audio_filename.wav, midi_filename.wav]
         """
-        if group != "Bach10":
-            raise RuntimeError(
-                f'Group {group} not found. Bach10 supports only one single group. (specified by Bach10 group).')
         logger.info(f"Loading Files for group {group}, searching in {self.bach10_audio_wav}")
 
-        audio_filepaths: List[str] = glob(os.path.join(self.bach10_audio_wav, '*.wav'), recursive=False)
-        if len(audio_filepaths) == 0:
-            raise RuntimeError(f'Expected files for group {group}, found nothing.')
+        audio_filepaths: List[str] = glob(os.path.join(self.bach10_audio_wav, group + '*' + '*.wav'))
+        if len(audio_filepaths) != 1:
+            raise RuntimeError(f'Expected one file for group {group}, found {len(audio_filepaths)}.')
 
-        ann_audio_note_filepaths_csv: List[str] = glob(os.path.join(self.bach10_csv, '*.csv'))
-        assert len(ann_audio_note_filepaths_csv) > 0
+        ann_audio_note_filepaths_csv: List[str] = glob(os.path.join(self.bach10_csv, group + '*'))
+        if len(ann_audio_note_filepaths_csv) != 1:
+            raise RuntimeError(
+                f'Expected one annotatiimon file for group {group}, found {len(ann_audio_note_filepaths_csv)}.')
 
         # save csv as midi
         midi_path = midi.save_nt_csv_as_midi(ann_audio_note_filepaths_csv, self.bach10_midi)

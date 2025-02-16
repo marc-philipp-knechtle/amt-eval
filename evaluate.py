@@ -17,7 +17,9 @@ from tqdm import tqdm
 
 import utils.log
 from constants import SAMPLE_RATE, HOP_LENGTH
+from data import dataset_determination
 from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset, NoteTrackingDataset
+from data.dataset_determination import dir_contains_other_dirs
 from utils import midi, decoding
 
 import data
@@ -60,10 +62,12 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
 
     dataset: NoteTrackingDataset = determine_dataset(dataset_name, dataset_group)
 
+    evaluate_inference_dataset(dataset, predictions_dir, save_path)
+
+
+def evaluate_inference_dataset(dataset, predictions_dir, save_path):
     metrics: defaultdict = defaultdict(list)
-
     predictions_filepaths: List[str] = glob(os.path.join(predictions_dir, '*.mid'))
-
     # path, audio, label, velocity, onset, offset, frame
     label: Tuple[str, str]
     for label in tqdm(dataset):
@@ -89,7 +93,6 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
             pitches.append(int(pitch))
             intervals.append((float(start_time), float(end_time)))
             velocities.append(velocity)
-
 
         p_est: np.ndarray = np.array(pitches)
         """
@@ -177,7 +180,6 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
             hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps)
 
         del i_ref, i_est, p_est, p_ref, p_est_hz, p_ref_hz
-
     total_eval_str: str = ''
     for key, values in metrics.items():
         if key.startswith('metric/'):
@@ -185,9 +187,8 @@ def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_grou
             eval_str: str = f'{category:>32} {name:25}: {np.mean(values):.3f} ± {np.std(values):.3f}'
             logger.info(eval_str)
             total_eval_str += eval_str + '\n'
-
     if save_path is not None:
-        metrics_filepath = os.path.join(save_path, f'metrics-{dataset_name}.txt')
+        metrics_filepath = os.path.join(save_path, f'metrics-{str(dataset)}.txt')
         with open(metrics_filepath, 'w') as f:
             f.write(total_eval_str)
 
@@ -243,7 +244,15 @@ def main():
     file_handler.setLevel(logging.INFO)
     logger.addHandler(file_handler)
 
-    evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group, save_path=args.save_path)
+    if dir_contains_other_dirs(predictions_dir):
+        for root, dirs, files in os.walk(predictions_dir):
+            for directory in dirs:
+                local_dir_path = os.path.join(root, directory)
+                dataset = dataset_determination.dataset_definitions_trans_comparing_paper[directory]()
+                print('asdf')
+    else:
+        evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group,
+                               save_path=args.save_path)
 
 
 if __name__ == '__main__':
