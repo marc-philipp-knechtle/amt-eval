@@ -447,10 +447,12 @@ class TriosDataset(NoteTrackingDataset):
 
 
 class ChoralSingingDataset(NoteTrackingDataset):
-    csd_midi_combined: str
+    csd_audio_dir: str
+    csd_midi_mixed: str
 
-    def __init__(self, path='datasets/ChoralSingingDataset/ChoralSingingDataset', groups=None, logger_filepath: str = None):
-        self.csd_midi_combined = os.path.join(path, '_mix_midi')
+    def __init__(self, path='datasets/ChoralSingingDataset', groups=None, logger_filepath: str = None):
+        self.csd_audio_dir = os.path.join(path, 'mixaudio_wav_22050_mono')
+        self.csd_midi_mixed = os.path.join(path, '_ann_audio_note_midi')
         super().__init__(path, groups, logger_filepath)
 
     @classmethod
@@ -458,18 +460,53 @@ class ChoralSingingDataset(NoteTrackingDataset):
         return ['Bruckner_LocusIste', 'Guerrero_NinoDios', 'Traditional_ElRossinyol']
 
     def get_files(self, group: str) -> List[Tuple[str, str]]:
-        logger.info(f'Loading files for group {group}, searching in {self.path}')
-        audio_dir: str = os.path.join(self.path, 'CSD_' + group, 'mix')
-        audio_filepaths: List[str] = glob(os.path.join(audio_dir, '*.wav'), recursive=False)
-        if len(audio_filepaths) != 1:
-            raise RuntimeError(f'Expected exactly one file for group {group}, found {len(audio_filepaths)} files.')
+        logging.info(f'Loading files for group {group}, searching in {self.path}')
+        audio_filepaths: List[str] = glob(os.path.join(self.csd_audio_dir, '*' + group + '*.wav'))
+        if len(audio_filepaths) != 5:
+            raise RuntimeError(f'Expected exactly 5 files for group {group}, found {len(audio_filepaths)} files.')
 
-        midi_filepaths: List[str] = glob(os.path.join(self.path, 'CSD_' + group, 'midi', '*.mid'), recursive=False)
+        midi_filepaths: List[str] = glob(
+            os.path.join(self.path, 'ChoralSingingDataset', 'CSD_' + group, 'midi', '*.mid'), recursive=False)
         if len(midi_filepaths) != 4:
             raise RuntimeError(f'Expected four midi files for group {group}, found {len(midi_filepaths)} files.')
-        midi_filepath: str = midi.combine_midi_files(midi_filepaths,
-                                                     os.path.join(self.csd_midi_combined, group + '.mid'))
-        return [(audio_filepaths[0], midi_filepath)]
+
+        midi_sorted: Dict = {}
+        for midifile in midi_filepaths:
+            if 'alt' in midifile:
+                midi_sorted['alt'] = midifile
+            elif 'sop' in midifile:
+                midi_sorted['sop'] = midifile
+            elif 'ten' in midifile:
+                midi_sorted['ten'] = midifile
+            elif 'bas' in midifile:
+                midi_sorted['bas'] = midifile
+            else:
+                raise RuntimeError()
+
+        filepaths_audio_midi: List[Tuple[str, str]] = []
+        for audio_file in audio_filepaths:
+            if 'alt' in audio_file:
+                noalt_midi = midi.combine_midi_files([midi_sorted['sop'], midi_sorted['ten'], midi_sorted['bas']],
+                                                     os.path.join(self.csd_midi_mixed, group + 'noalt.mid'))
+                filepaths_audio_midi.append((audio_file, noalt_midi))
+            elif 'sop' in audio_file:
+                nosop_midi = midi.combine_midi_files([midi_sorted['alt'], midi_sorted['ten'], midi_sorted['bas']],
+                                                     os.path.join(self.csd_midi_mixed, group + 'nosop.mid'))
+                filepaths_audio_midi.append((audio_file, nosop_midi))
+            elif 'ten' in audio_file:
+                noten_midi = midi.combine_midi_files([midi_sorted['sop'], midi_sorted['alt'], midi_sorted['bas']],
+                                                     os.path.join(self.csd_midi_mixed, group + 'noten.mid'))
+                filepaths_audio_midi.append((audio_file, noten_midi))
+            elif 'bas' in audio_file:
+                nobas_midi = midi.combine_midi_files([midi_sorted['sop'], midi_sorted['alt'], midi_sorted['ten']],
+                                                     os.path.join(self.csd_midi_mixed, group + 'nobas.mid'))
+                filepaths_audio_midi.append((audio_file, nobas_midi))
+            else:
+                all_midi = midi.combine_midi_files(
+                    [midi_sorted['sop'], midi_sorted['alt'], midi_sorted['ten'], midi_sorted['bas']],
+                    os.path.join(self.csd_midi_mixed, group + 'all.mid'))
+                filepaths_audio_midi.append((audio_file, all_midi))
+        return filepaths_audio_midi
 
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
