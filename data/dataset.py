@@ -333,6 +333,9 @@ class Bach10Dataset(NoteTrackingDataset):
 
         super().__init__(path, groups, logger_filepath)
 
+    def __str__(self):
+        return 'Bach10Dataset'
+
     @classmethod
     def available_groups(cls) -> List[str]:
         """
@@ -382,6 +385,9 @@ class PhenicxAnechoicDataset(NoteTrackingDataset):
 
         super().__init__(path, groups, logger_filepath)
 
+    def __str__(self):
+        return 'PhenicxAnechoicDataset'
+
     @classmethod
     def available_groups(cls) -> List[str]:
         """
@@ -412,6 +418,9 @@ class RwcDataset(NoteTrackingDataset):
         self.rwc_midi_warped = os.path.join(path, 'MIDI_warped')
 
         super().__init__(path, groups, logger_filepath)
+
+    def __str__(self):
+        return 'RwcDataset'
 
     @classmethod
     def available_groups(cls) -> List[str]:
@@ -444,6 +453,9 @@ class TriosDataset(NoteTrackingDataset):
         self.trios_midi_combined = os.path.join(path, '_mix_midi')
         super().__init__(path, groups, logger_filepath)
 
+    def __str__(self):
+        return 'TriosDataset'
+
     @classmethod
     def available_groups(cls) -> List[str]:
         return ['brahms', 'lussier', 'mozart', 'schubert', 'take_five']
@@ -472,6 +484,9 @@ class ChoralSingingDataset(NoteTrackingDataset):
         self.csd_audio_dir = os.path.join(path, 'mixaudio_wav_22050_mono')
         self.csd_midi_mixed = os.path.join(path, '_ann_audio_note_midi')
         super().__init__(path, groups, logger_filepath)
+
+    def __str__(self):
+        return 'ChoralSingingDataset'
 
     @classmethod
     def available_groups(cls) -> List[str]:
@@ -558,6 +573,9 @@ class MusicNetDataset(NoteTrackingDataset):
         self.mun_annotations = os.path.join(path, 'musicnet_midis')
 
         super().__init__(path, groups)
+
+    def __str__(self):
+        return 'MusicNetDataset'
 
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
