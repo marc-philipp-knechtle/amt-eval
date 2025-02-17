@@ -249,7 +249,7 @@ def main():
             for directory in dirs:
                 local_dir_path = os.path.join(root, directory)
                 dataset = dataset_determination.dataset_definitions_trans_comparing_paper[directory]()
-                print('asdf')
+                evaluate_inference_dataset(dataset, local_dir_path, args.save_path)
     else:
         evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group,
                                save_path=args.save_path)
