@@ -18,7 +18,7 @@ from tqdm import tqdm
 import utils.log
 from constants import SAMPLE_RATE, HOP_LENGTH
 from data import dataset_determination
-from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset, NoteTrackingDataset
+from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset, NoteTrackingDataset, ChoralSingingDataset
 from data.dataset_determination import dir_contains_other_dirs
 from utils import midi, decoding
 
@@ -74,8 +74,12 @@ def evaluate_inference_dataset(dataset, predictions_dir, save_path):
         audio_wav_name = os.path.basename(label[0]).replace('.wav', '')
         matching_predictions = [prediction_file for prediction_file in predictions_filepaths if
                                 re.compile(fr".*{re.escape(audio_wav_name)}.*").search(prediction_file)]
+        if type(dataset) is ChoralSingingDataset and len(dataset) == 5:
+            matching_predictions = sorted(matching_predictions)
+            matching_predictions = [matching_predictions[0]]
         if len(matching_predictions) != 1:
             raise RuntimeError(
+                f'Evaluating dataset {str(dataset)}'
                 f'Found different amount of predictions for label {audio_wav_name}. '
                 f'Expected 1, found {len(matching_predictions)}.'
                 f'length of total predictions: {len(predictions_filepaths)}')
