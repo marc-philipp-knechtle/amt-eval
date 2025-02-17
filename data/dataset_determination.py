@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from data.dataset import Bach10Dataset, ChoralSingingDataset
+from data.dataset import Bach10Dataset, ChoralSingingDataset, MusicNetDataset
 
 
 def dir_contains_other_dirs(dir_path) -> bool:
@@ -10,7 +10,7 @@ def dir_contains_other_dirs(dir_path) -> bool:
 dataset_definitions_trans_comparing_paper = {
     'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
     'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
-    'MuN': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+    'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
     'PhA': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
     'RWC': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
     'SWD': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),

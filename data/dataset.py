@@ -511,3 +511,71 @@ class ChoralSingingDataset(NoteTrackingDataset):
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
         return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
+
+
+class MusicNetDataset(NoteTrackingDataset):
+    mun_audio: str
+    mun_annotations: str
+
+    test_set_files: Dict = {
+        'MuN-3-test': ['2303', '1819', '2382'],
+        'MuN-10-test': ['2303', '1819', '2382', '2298', '2191', '2556', '2416', '2628', '1759', '2106'],
+        'MuN-10-var-test': ['2303', '1819', '2382', '2298', '2191', '2556', '2416', '2629', '1759', '2106'],
+        'MuN-10-slow-test': ['2302', '1818', '2383', '2293', '2186', '2557', '2415', '2627', '1758', '2105'],
+        'MuN-10-fast-test': ['2310', '1817', '2381', '2296', '2186', '2555', '2417', '2626', '1757', '2104'],
+        'MuN-36-cyc-test': ['2302', '2303', '2304', '2305',
+                            '1817', '1818', '1819',
+                            '2381', '2382', '2383', '2384',
+                            '2293', '2294', '2295', '2296', '2297', '2298',
+                            '2186', '2191',
+                            '2555', '2556', '2557',
+                            '2415', '2416', '2417',
+                            '2626', '2627', '2628', '2629',
+                            '1757', '1758', '1759', '1760',
+                            '2104', '2105', '2106']
+    }
+
+    def __init__(self, path='datasets/MusicNet', groups=None):
+        self.mun_audio = os.path.join(path, 'musicnet')
+        self.mun_annotations = os.path.join(path, 'musicnet_midis')
+
+        super().__init__(path, groups)
+
+    @staticmethod
+    def load_annotations(annotation_path: str) -> np.ndarray:
+        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
+
+    @classmethod
+    def available_groups(cls):
+        return ['MuN-3-train', 'MuN-3-test', 'MuN-10-train', 'MuN-10-test', 'MuN-10-var-train', 'MuN-10-var-test',
+                'MuN-10-slow-train', 'MuN-10-slow-test', 'MuN-10-fast-train', 'MuN-10-fast-test',
+                'MuN-36-cyc-train', 'MuN-36-cyc-test']
+
+    def get_files(self, group):
+        logging.info(f'Loading files for group {group}, searching in {self.mun_audio}')
+        all_audio_filepaths = glob(os.path.join(self.mun_audio, '**', '*.wav'), recursive=True)
+        audio_filepaths_filtered: List[str] = []
+        if 'test' in group:
+            test_labels: List[str] = self.test_set_files[group]
+            for filepath in all_audio_filepaths:
+                if any(test_label in filepath for test_label in test_labels):
+                    audio_filepaths_filtered.append(filepath)
+        if 'train' in group:
+            group_test = group[:-5] + 'test'
+            test_labels: List[str] = self.test_set_files[group_test]
+            for filepath in all_audio_filepaths:
+                if not any(test_label in filepath for test_label in test_labels):
+                    audio_filepaths_filtered.append(filepath)
+
+        if len(audio_filepaths_filtered) < 2:
+            raise RuntimeError(
+                f'Received unexpected number of files for group {group}, found {len(audio_filepaths_filtered)}')
+
+        filepaths_audio_midi: List[Tuple[str, str]] = []
+        for file in audio_filepaths_filtered:
+            identifier = os.path.basename(file)[:-4]  # cut .wav from identifier
+            midi_file = glob(os.path.join(self.mun_annotations, '**', identifier + '*'), recursive=True)
+            if len(midi_file) != 1:
+                raise RuntimeError(f'Expected 1 file for {file}, got {len(midi_file)}')
+            filepaths_audio_midi.append((file, midi_file[0]))
+        return filepaths_audio_midi
