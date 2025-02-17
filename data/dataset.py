@@ -96,15 +96,25 @@ class NoteTrackingDataset(Dataset):
 class SchubertWinterreiseDataset(NoteTrackingDataset):
     swd_midi: str
     swd_csv: str
-    swd_tsv: str
     swd_audio_wav: str
+    neither_split: str
 
-    def __init__(self, path='datasets/Schubert_Winterreise_Dataset_v2-1', groups=None, logger_filepath: str = None):
+    def __init__(self, path='datasets/Schubert_Winterreise_Dataset_v2-1', groups=None, logger_filepath: str = None,
+                 neither_split=None):
+        """
+        :param neither_split: Implements the neither split like specified in the comparing paper:
+            Options train, validation, test
+            testing: HU33, SC06, 17-24
+            validation: AL98, FI55 14-16
+            train: FI66, FI80, OL06, QU98, TR99 1-13
+        :return: the instance lol
+        """
         # adding underscore to symbolize that these annotations are computationally created
         self.swd_midi = os.path.join(path, '02_Annotations', '_ann_audio_note_midi')
         self.swd_csv = os.path.join(path, '02_Annotations', 'ann_audio_note')
-        self.swd_tsv = os.path.join(path, '02_Annotations', '_ann_audio_note_tsv')
         self.swd_audio_wav = os.path.join(path, '01_RawData', 'audio_wav')
+
+        self.neither_split = neither_split
 
         super().__init__(path, groups, logger_filepath)
 
@@ -133,9 +143,17 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         Base methods to load all audio files into memory
         Returns: List of Tuple[audio_filename.wav,midi_filename.wav]
         """
-        audio_filepaths: List[str] = self.get_filepaths_for_group(self.swd_audio_wav, group)
+        audio_filepaths: List[str] = sorted(self.get_filepaths_for_group(self.swd_audio_wav, group))
         if len(audio_filepaths) == 0:
             raise RuntimeError(f'Expected files for group {group}, found nothing.')
+
+        if self.neither_split is not None:
+            if self.neither_split == 'train':
+                audio_filepaths = audio_filepaths[:13]
+            elif self.neither_split == 'validation':
+                audio_filepaths = audio_filepaths[13:16]
+            elif self.neither_split == 'test':
+                audio_filepaths = audio_filepaths[16:25]
 
         ann_audio_note_filepaths_csv: List[str] = glob(os.path.join(self.swd_csv, '*.csv'))
         assert len(ann_audio_note_filepaths_csv) > 0

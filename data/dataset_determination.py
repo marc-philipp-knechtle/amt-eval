@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from data.dataset import Bach10Dataset, ChoralSingingDataset, MusicNetDataset, PhenicxAnechoicDataset
+from data.dataset import Bach10Dataset, ChoralSingingDataset, MusicNetDataset, PhenicxAnechoicDataset, RwcDataset, \
+    SchubertWinterreiseDataset
 
 
 def dir_contains_other_dirs(dir_path) -> bool:
@@ -12,7 +13,7 @@ dataset_definitions_trans_comparing_paper = {
     'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
     'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
     'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
-    'RWC': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
-    'SWD': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+    'RWC': lambda: RwcDataset(groups=['rwc']),
+    'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
     'Trios': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
 }
