@@ -56,16 +56,13 @@ def determine_dataset(dataset_parameter_name: str, dataset_group: str = None) ->
     return dataset_class(**kwargs)
 
 
-def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str, save_path: str = None):
-    logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_group}. '
-                f'Storing results in {save_path}.')
-
+def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str):
+    logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_group}.')
     dataset: NoteTrackingDataset = determine_dataset(dataset_name, dataset_group)
+    evaluate_inference_dataset(dataset, predictions_dir)
 
-    evaluate_inference_dataset(dataset, predictions_dir, save_path)
 
-
-def evaluate_inference_dataset(dataset, predictions_dir, save_path):
+def evaluate_inference_dataset(dataset, predictions_dir):
     metrics: defaultdict = defaultdict(list)
     predictions_filepaths: List[str] = glob(os.path.join(predictions_dir, '*.mid'))
     # path, audio, label, velocity, onset, offset, frame
@@ -184,6 +181,10 @@ def evaluate_inference_dataset(dataset, predictions_dir, save_path):
             hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps)
 
         del i_ref, i_est, p_est, p_ref, p_est_hz, p_ref_hz
+    return metrics
+
+
+def write_metrics(metrics: Dict, dataset_name: str, save_path: str):
     total_eval_str: str = ''
     for key, values in metrics.items():
         if key.startswith('metric/'):
@@ -192,7 +193,7 @@ def evaluate_inference_dataset(dataset, predictions_dir, save_path):
             logger.info(eval_str)
             total_eval_str += eval_str + '\n'
     if save_path is not None:
-        metrics_filepath = os.path.join(save_path, f'metrics-{str(dataset)}.txt')
+        metrics_filepath = os.path.join(save_path, f'metrics-{str(dataset_name)}.txt')
         with open(metrics_filepath, 'w') as f:
             f.write(total_eval_str)
 
@@ -249,14 +250,20 @@ def main():
     logger.addHandler(file_handler)
 
     if dir_contains_other_dirs(predictions_dir):
+        all_metrics: Dict = {}
         for root, dirs, files in os.walk(predictions_dir):
             for directory in dirs:
-                local_dir_path = os.path.join(root, directory)
+                predictions_directory = os.path.join(root, directory)
                 dataset = dataset_determination.dataset_definitions_trans_comparing_paper[directory]()
-                evaluate_inference_dataset(dataset, local_dir_path, args.save_path)
+                dataset_metrics = evaluate_inference_dataset(dataset, predictions_directory)
+                write_metrics(dataset_metrics, str(dataset), args.save_path)
+                for key, value in dataset_metrics.items():
+                    if key not in all_metrics:
+                        all_metrics[key] = []
+                    all_metrics[key].extend(value)
+        write_metrics(all_metrics, 'mixed_test_set', args.save_path)
     else:
-        evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group,
-                               save_path=args.save_path)
+        evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group)
 
 
 if __name__ == '__main__':
