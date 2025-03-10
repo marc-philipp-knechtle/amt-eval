@@ -548,7 +548,9 @@ class ChoralSingingDataset(NoteTrackingDataset):
 
 class MusicNetDataset(NoteTrackingDataset):
     mun_audio: str
-    mun_annotations: str
+    mun_generated_midi_annotations: str
+
+    MUN_ANNOTATION_SAMPLERATE: int = 44100
 
     test_set_files: Dict = {
         'MuN-3-test': ['2303', '1819', '2382'],
@@ -570,7 +572,7 @@ class MusicNetDataset(NoteTrackingDataset):
 
     def __init__(self, path='datasets/MusicNet', groups=None):
         self.mun_audio = os.path.join(path, 'musicnet')
-        self.mun_annotations = os.path.join(path, 'musicnet_midis')
+        self.mun_generated_midi_annotations = os.path.join(path, '_musicnet_generated_midi')
 
         super().__init__(path, groups)
 
@@ -586,6 +588,31 @@ class MusicNetDataset(NoteTrackingDataset):
         return ['MuN-3-train', 'MuN-3-test', 'MuN-10-train', 'MuN-10-test', 'MuN-10-var-train', 'MuN-10-var-test',
                 'MuN-10-slow-train', 'MuN-10-slow-test', 'MuN-10-fast-train', 'MuN-10-fast-test',
                 'MuN-36-cyc-train', 'MuN-36-cyc-test']
+
+    def save_mun_csv_as_midi(self, csv_file, midi_path) -> str:
+        if not os.path.exists(midi_path):
+            os.mkdir(midi_path)
+
+        csv_annotations: pd.DataFrame = pd.read_csv(csv_file, sep=',')
+        midi_filename = os.path.basename(csv_file.replace('.csv', '.mid'))
+        midi_filepath = os.path.join(midi_path, midi_filename)
+        if os.path.exists(midi_filepath):
+            return str(midi_filepath)
+
+        piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
+        piano = pretty_midi.Instrument(program=piano_program)
+
+        for idx, row in csv_annotations.iterrows():
+            onset: float = row[0] / self.MUN_ANNOTATION_SAMPLERATE
+            offset: float = row[1] / self.MUN_ANNOTATION_SAMPLERATE
+            pitch: int = int(row[3])
+            note = pretty_midi.Note(start=onset, end=offset, pitch=pitch, velocity=64)
+            piano.notes.append(note)
+        file: pretty_midi.PrettyMIDI = pretty_midi.PrettyMIDI()
+        file.instruments.append(piano)
+        file.write(midi_filepath)
+
+        return str(midi_filepath)
 
     def get_files(self, group):
         logging.info(f'Loading files for group {group}, searching in {self.mun_audio}')
@@ -609,9 +636,11 @@ class MusicNetDataset(NoteTrackingDataset):
 
         filepaths_audio_midi: List[Tuple[str, str]] = []
         for file in audio_filepaths_filtered:
-            identifier = os.path.basename(file)[:-4]  # cut .wav from identifier
-            midi_file = glob(os.path.join(self.mun_annotations, '**', identifier + '*'), recursive=True)
-            if len(midi_file) != 1:
-                raise RuntimeError(f'Expected 1 file for {file}, got {len(midi_file)}')
-            filepaths_audio_midi.append((file, midi_file[0]))
+            identifier = os.path.basename(file)[:-4]
+            csv_files = glob(os.path.join(self.mun_audio, '**', identifier + '*.csv'), recursive=True)
+            if len(csv_files) != 1:
+                raise RuntimeError(f'Expected 1 file for {file}, got {len(csv_files)}')
+            midi_filepath = self.save_mun_csv_as_midi(csv_files[0], self.mun_generated_midi_annotations)
+            filepaths_audio_midi.append((file, midi_filepath))
+
         return filepaths_audio_midi
