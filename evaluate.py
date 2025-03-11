@@ -142,6 +142,10 @@ def evaluate_inference_dataset(dataset, predictions_dir):
         p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz,
                                                                         i_est, p_est_hz,
                                                                         offset_ratio=None)
+        p = round(p, 3)
+        r = round(r, 3)
+        f = round(f, 3)
+        o = round(o, 3)
         logger.debug(f"Calculated onset metrics p: {p}, r: {r}, f: {f}, o: {o}")
         metrics['metric/note/precision'].append(p)
         metrics['metric/note/recall'].append(r)
@@ -189,7 +193,19 @@ def write_metrics(metrics: Dict, dataset_name: str, save_path: str):
     for key, values in metrics.items():
         if key.startswith('metric/'):
             _, category, name = key.split('/')
-            eval_str: str = f'{category:>32} {name:25}: {np.mean(values):.3f} ± {np.std(values):.3f}'
+            eval_str: str = f'{category:>32} {name:25}: {np.mean(values, dtype=np.float64):.3f} ± {np.std(values):.3f}'
+            if name == 'f1':
+                """
+                We compute the f1 score separately for the whole task because of issues selecting the mean. 
+                Old approach -> We use the arithmetic mean of the f1 score of each prediction. 
+                    The F1 score is defined as the harmonic mean of precision and recall. With this approach 
+                    (using the arithmetic mean) this definition is not fulfilled.  
+                """
+                precision = np.mean(metrics[f'metric/{category}/precision'])
+                recall = np.mean(metrics[f'metric/{category}/recall'])
+                f1 = hmean([precision + eps, recall + eps]) - eps
+                f1_direct_var_name: str = 'directly computed f1'
+                eval_str += '\n' + f'{category:>32} {f1_direct_var_name:25}: {f1:.3f}'
             logger.info(eval_str)
             total_eval_str += eval_str + '\n'
     if save_path is not None:
