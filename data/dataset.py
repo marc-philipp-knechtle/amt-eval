@@ -399,7 +399,14 @@ class PhenicxAnechoicDataset(NoteTrackingDataset):
         logger.info(f'Loading files for group {group}, searching in {self.phenicx_anechoic_mixaudio_wav}')
 
         audio_filepath: str = os.path.join(self.phenicx_anechoic_mixaudio_wav, group + '.wav')
-        midi_path: str = os.path.join(self.phenicx_anechoic_annotations, group, 'all.mid')
+
+        midi_filepaths: List[str] = glob(os.path.join(self.phenicx_anechoic_annotations, group, '*.mid'))
+        # remove the all.mid file, where all the _o files are included
+        midi_filepaths = [f for f in midi_filepaths if not re.compile(fr".*all.mid").search(f)]
+        # remove all original files (not warped to the actual recording)
+        midi_filepaths = [f for f in midi_filepaths if not re.compile(fr".*_o.mid").search(f)]
+
+        midi_path: str = midi.combine_midi_files(midi_filepaths, os.path.join(self.phenicx_anechoic_annotations, group, 'warped_all.mid'))
 
         # For this implementation, we only have one file per group -> this is enough
         return [(audio_filepath, midi_path)]

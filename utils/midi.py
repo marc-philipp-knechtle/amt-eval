@@ -17,14 +17,41 @@ def combine_midi_files(midi_filepaths: List[str], combined_midi_savepath: str) -
     if not os.path.exists(os.path.dirname(combined_midi_savepath)):
         os.mkdir(os.path.dirname(combined_midi_savepath))
 
-    combined_midi = mido.MidiFile()
+    index_0_midi = mido.MidiFile(midi_filepaths[0])
+    default_ticks_per_beat = index_0_midi.ticks_per_beat
+
+    combined_midi = mido.MidiFile(ticks_per_beat=default_ticks_per_beat)
 
     for midi_path in midi_filepaths:
         midi_file = mido.MidiFile(midi_path)
+        assert midi_file.ticks_per_beat == default_ticks_per_beat
         for track in midi_file.tracks:
             combined_midi.tracks.append(track)
     combined_midi.save(combined_midi_savepath)
+    combined_midi.ticks_per_beat = 120
     return combined_midi_savepath
+
+def combine_midi_files_type0(midi_filepaths: List[str], combined_midi_savepath: str) -> str:
+    if not os.path.exists(os.path.dirname(combined_midi_savepath)):
+        os.mkdir(os.path.dirname(combined_midi_savepath))
+
+    combined_midi = mido.MidiFile(type=0)
+    all_tracks = []
+    """
+    pretty_midi (used internally by mirdata) is restricted to type 0 or type 1 MIDI files. 
+    """
+    for midi_path in midi_filepaths:
+        midi_file = mido.MidiFile(midi_path)
+        for track in midi_file.tracks:
+            all_tracks.append(track)
+    merged_track = mido.merge_tracks(
+        all_tracks)  # we need to merge the tracks to get a type 0 midi file (with a single track)
+    combined_midi.tracks.append(merged_track)
+    combined_midi.save(combined_midi_savepath)
+
+
+    return combined_midi_savepath
+
 
 
 def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarray:

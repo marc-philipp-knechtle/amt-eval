@@ -56,10 +56,11 @@ def determine_dataset(dataset_parameter_name: str, dataset_group: str = None) ->
     return dataset_class(**kwargs)
 
 
-def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str):
+def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str, save_path: str):
     logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_group}.')
     dataset: NoteTrackingDataset = determine_dataset(dataset_name, dataset_group)
-    evaluate_inference_dataset(dataset, predictions_dir)
+    metrics = evaluate_inference_dataset(dataset, predictions_dir)
+    write_metrics(metrics, dataset_name, save_path)
 
 
 def evaluate_inference_dataset(dataset, predictions_dir):
@@ -279,7 +280,8 @@ def main():
                     all_metrics[key].extend(value)
         write_metrics(all_metrics, 'mixed_test_set', args.save_path)
     else:
-        evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group)
+        evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group,
+                               save_path=args.save_path)
 
 
 if __name__ == '__main__':
