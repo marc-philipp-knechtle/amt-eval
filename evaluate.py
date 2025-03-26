@@ -20,6 +20,7 @@ from constants import SAMPLE_RATE, HOP_LENGTH
 from data import dataset_determination
 from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset, NoteTrackingDataset, ChoralSingingDataset
 from data.dataset_determination import dir_contains_other_dirs
+from metrics_midi import metrics_midi_nt
 from utils import midi, decoding
 
 import data
@@ -83,116 +84,19 @@ def evaluate_inference_dataset(dataset, predictions_dir):
                 f'length of total predictions: {len(predictions_filepaths)}')
         prediction_filepath = matching_predictions[0]
         logger.info(f'Evaluating audio wave {audio_wav_name} with prediction {prediction_filepath}.')
-        prediction_note_tracking: np.ndarray = midi.parse_midi_note_tracking(prediction_filepath)
 
-        pitches: List[int] = []
-        intervals: List[Tuple[float, float]] = []
-        velocities: List[int] = []
-        for start_time, end_time, pitch, velocity in prediction_note_tracking:
-            if start_time == end_time:
-                continue
-
-            pitches.append(int(pitch))
-            intervals.append((float(start_time), float(end_time)))
-            velocities.append(velocity)
-
-        p_est: np.ndarray = np.array(pitches)
-        """
-        Array of estimated pitches (in midi values)
-        shape=(n,)
-        """
-        p_est_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_est])
-        """
-        shape=(n,)
-        """
-        i_est: np.ndarray = np.array(intervals).reshape(-1, 2)
-        """
-        List of estimated intervals (onset time, offset time), in real! time
-        shape=(n,2)
-        """
-        v_est: np.ndarray = np.array(velocities)
-        """
-        shape=(n,)
-        """
-        del pitches, intervals, velocities, prediction_note_tracking
-
-        label_note_tracking: np.ndarray = midi.parse_midi_note_tracking(label[1])
-        pitches_ref: List[int] = []
-        intervals_ref: List[Tuple[float, float]] = []
-        velocities_ref: List[int] = []
-        for start_time, end_time, pitch, velocity in label_note_tracking:
-            pitches_ref.append(int(pitch))
-            intervals_ref.append((float(start_time), float(end_time)))
-            velocities_ref.append(velocity)
-        p_ref: np.ndarray = np.array(pitches_ref)
-        """
-        shape=(m,)
-        Array of reference pitches (in midi values)
-        """
-        p_ref_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_ref])
-        i_ref: np.ndarray = np.array(intervals_ref).reshape(-1, 2)
-        """
-        shape=(m,2)
-        """
-        v_ref: np.ndarray = np.array(velocities_ref)
-        """
-        shape=(m,)
-        """
-        del pitches_ref, intervals_ref, velocities_ref
-
-        p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz,
-                                                                        i_est, p_est_hz,
-                                                                        offset_ratio=None)
-        p = round(p, 3)
-        r = round(r, 3)
-        f = round(f, 3)
-        o = round(o, 3)
-        logger.debug(f"Calculated onset metrics p: {p}, r: {r}, f: {f}, o: {o}")
-        metrics['metric/note/precision'].append(p)
-        metrics['metric/note/recall'].append(r)
-        metrics['metric/note/f1'].append(f)
-        metrics['metric/note/overlap'].append(o)
-
-        p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz, i_est, p_est_hz)
-        logger.debug(f"Calculated onset/offset metrics p: {p}, r: {r}, f: {f}, o: {o}")
-        metrics['metric/note-with-offsets/precision'].append(p)
-        metrics['metric/note-with-offsets/recall'].append(r)
-        metrics['metric/note-with-offsets/f1'].append(f)
-        metrics['metric/note-with-offsets/overlap'].append(o)
-
-        p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
-                                                                                 i_est, p_est_hz, v_est,
-                                                                                 offset_ratio=None,
-                                                                                 velocity_tolerance=0.1)
-        logger.debug(f"Calculated onset/velocity metrics p: {p}, r: {r}, f: {f}, o: {o}")
-        metrics['metric/note-with-velocity/precision'].append(p)
-        metrics['metric/note-with-velocity/recall'].append(r)
-        metrics['metric/note-with-velocity/f1'].append(f)
-        metrics['metric/note-with-velocity/overlap'].append(o)
-
-        p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
-                                                                                 i_est, p_est_hz, v_est,
-                                                                                 velocity_tolerance=0.1)
-        logger.debug(f"Calculated onset/offset/velocity metrics p: {p}, r: {r}, f: {f}, o: {o}")
-        metrics['metric/note-with-offsets-and-velocity/precision'].append(p)
-        metrics['metric/note-with-offsets-and-velocity/recall'].append(r)
-        metrics['metric/note-with-offsets-and-velocity/f1'].append(f)
-        metrics['metric/note-with-offsets-and-velocity/overlap'].append(o)
-
-        frame_metrics = evaluate_note_based_mpe(p_ref, i_ref, p_est, i_est)
-        for key, loss in frame_metrics.items():
-            metrics['metric/frame/' + key.lower().replace(' ', '_')].append(loss)
-        metrics['metric/frame/f1'].append(
-            hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps)
-
-        del i_ref, i_est, p_est, p_ref, p_est_hz, p_ref_hz
+        file_metrics = metrics_midi_nt.calculate_metrics(prediction_filepath, label[1])
+        for key, value in file_metrics.items():
+            if key not in metrics:
+                metrics[key] = []
+            metrics[key].append(value)
     return metrics
 
 
 def write_metrics(metrics: Dict, dataset_name: str, save_path: str):
     total_eval_str: str = ''
     for key, values in metrics.items():
-        if key.startswith('metric/'):
+        if key.startswith('nt/'):
             _, category, name = key.split('/')
             eval_str: str = f'{category:>32} {name:25}: {np.mean(values, dtype=np.float64):.3f} ± {np.std(values):.3f}'
             if name == 'f1':
@@ -202,38 +106,19 @@ def write_metrics(metrics: Dict, dataset_name: str, save_path: str):
                     The F1 score is defined as the harmonic mean of precision and recall. With this approach 
                     (using the arithmetic mean) this definition is not fulfilled.  
                 """
-                precision = np.mean(metrics[f'metric/{category}/precision'])
-                recall = np.mean(metrics[f'metric/{category}/recall'])
+                precision = np.mean(metrics[f'nt/{category}/precision'])
+                recall = np.mean(metrics[f'nt/{category}/recall'])
                 f1 = hmean([precision + eps, recall + eps]) - eps
                 f1_direct_var_name: str = 'directly computed f1'
                 eval_str += '\n' + f'{category:>32} {f1_direct_var_name:25}: {f1:.3f}'
             logger.info(eval_str)
             total_eval_str += eval_str + '\n'
+        else:
+            raise RuntimeError(f'Unknown metric key {key}.')
     if save_path is not None:
         metrics_filepath = os.path.join(save_path, f'metrics-{str(dataset_name)}.txt')
         with open(metrics_filepath, 'w') as f:
             f.write(total_eval_str)
-
-
-def evaluate_note_based_mpe(p_ref: np.ndarray, i_ref: np.ndarray, p_est: np.ndarray, i_est: np.ndarray):
-    """
-    :param p_ref: pitch values, shape(n,)
-    :param i_ref: reference intervals, shape(n,2)
-    :param p_est: estimated pitch values, shape(m,1) (m=number of detected notes)
-    :param i_est: estimated intervals, shape(m,2)
-    """
-    i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).astype(int).reshape(-1, 2)
-    i_ref_frames: np.ndarray = (i_ref * scaling_real_to_frame).astype(int).reshape(-1, 2)
-
-    p_ref_min_midi = np.array([x for x in p_ref])
-    t_ref, f_ref = decoding.note_to_multipitch_realtime(p_ref_min_midi, i_ref_frames, scaling_frame_to_real)
-    """
-    List of estimated intervals in frame time, length n is the number of estimated notes
-    shape=(m,2)
-    """
-    t_est, f_est = decoding.note_to_multipitch_realtime(p_est, i_est_frames, scaling_frame_to_real)
-
-    return mir_eval.multipitch.evaluate(t_ref, f_ref, t_est, f_est)
 
 
 def main():
