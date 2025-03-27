@@ -2,7 +2,7 @@
 Note Tracking Metrics for midi files
 """
 import sys
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import mir_eval
 import numpy as np
@@ -23,7 +23,7 @@ With scaling_real_to_frame, we can convert from realtime to bin indices
 """
 
 
-def calculate_metrics(prediction_filepath: str, source_filepath: str):
+def calculate_metrics(prediction_filepath: str, source_filepath: str) -> Dict[str, float]:
     prediction_note_tracking: np.ndarray = midi.parse_midi_note_tracking(prediction_filepath)
 
     pitches_est: List[int] = []
