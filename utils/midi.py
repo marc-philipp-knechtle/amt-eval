@@ -13,23 +13,51 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 
 
-def combine_midi_files(midi_filepaths: List[str], combined_midi_savepath: str) -> str:
+def combine_midi_files(midi_filepaths: List[str], combined_midi_savepath: str,
+                       default_ticks_per_beat: int = None) -> str:
+    """
+    Args:
+        midi_filepaths:
+        combined_midi_savepath:
+        default_ticks_per_beat: If set, the internal ticks_per_beat of the midi files are overriden and ignored
+
+    Returns: path of the unified midi file
+    """
     if not os.path.exists(os.path.dirname(combined_midi_savepath)):
         os.mkdir(os.path.dirname(combined_midi_savepath))
 
     index_0_midi = mido.MidiFile(midi_filepaths[0])
-    default_ticks_per_beat = index_0_midi.ticks_per_beat
+    check_ticks_per_beat: bool = False
+    if default_ticks_per_beat is None: default_ticks_per_beat, check_ticks_per_beat = index_0_midi.ticks_per_beat, True
 
-    combined_midi = mido.MidiFile(ticks_per_beat=default_ticks_per_beat)
-
+    all_tracks = []
     for midi_path in midi_filepaths:
-        midi_file = mido.MidiFile(midi_path)
-        assert midi_file.ticks_per_beat == default_ticks_per_beat
+        if check_ticks_per_beat:
+            midi_file = mido.MidiFile(midi_path)
+            assert midi_file.ticks_per_beat == default_ticks_per_beat
+        else:
+            midi_file = mido.MidiFile(midi_path)
+            # midi_file.ticks_per_beat = default_ticks_per_beat
         for track in midi_file.tracks:
-            combined_midi.tracks.append(track)
+            if midi_file.ticks_per_beat == default_ticks_per_beat:
+                all_tracks.append(track)
+            else:
+                # resample track with different ticks_per_beat
+                for message in track:
+                    if message.is_meta:
+                        continue
+                    else:
+                        message.time = int(message.time * (default_ticks_per_beat/midi_file.ticks_per_beat))
+                all_tracks.append(track)
+
+    # merge to type 0 midi because we handle just note tracking for this here.
+    merged_track = mido.merge_tracks(all_tracks)
+    combined_midi = mido.MidiFile(type=0, ticks_per_beat=default_ticks_per_beat)
+    combined_midi.tracks.append(merged_track)
+
     combined_midi.save(combined_midi_savepath)
-    combined_midi.ticks_per_beat = 120
     return combined_midi_savepath
+
 
 def combine_midi_files_type0(midi_filepaths: List[str], combined_midi_savepath: str) -> str:
     if not os.path.exists(os.path.dirname(combined_midi_savepath)):
@@ -49,9 +77,7 @@ def combine_midi_files_type0(midi_filepaths: List[str], combined_midi_savepath: 
     combined_midi.tracks.append(merged_track)
     combined_midi.save(combined_midi_savepath)
 
-
     return combined_midi_savepath
-
 
 
 def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarray:

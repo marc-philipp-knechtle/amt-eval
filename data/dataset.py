@@ -406,7 +406,8 @@ class PhenicxAnechoicDataset(NoteTrackingDataset):
         # remove all original files (not warped to the actual recording)
         midi_filepaths = [f for f in midi_filepaths if not re.compile(fr".*_o.mid").search(f)]
 
-        midi_path: str = midi.combine_midi_files(midi_filepaths, os.path.join(self.phenicx_anechoic_annotations, group, 'warped_all.mid'))
+        midi_path: str = midi.combine_midi_files(midi_filepaths, os.path.join(self.phenicx_anechoic_annotations, group,
+                                                                              'warped_all.mid'))
 
         # For this implementation, we only have one file per group -> this is enough
         return [(audio_filepath, midi_path)]
@@ -474,8 +475,15 @@ class TriosDataset(NoteTrackingDataset):
             raise RuntimeError(f'Expected files for group {group}, found nothing.')
 
         midi_parts_filepaths: List[str] = glob(os.path.join(self.path, group, '*.mid'), recursive=False)
+
+        """
+         in the mozart and lussier Trio, there are files with a different 
+         ticks per beat value.
+         This leads to errors when combining those files. Therefore we submit the default value here and resample every 
+        """
         midi_filepath: str = midi.combine_midi_files(midi_parts_filepaths,
-                                                     os.path.join(self.trios_midi_combined, group + '.mid'))
+                                                     os.path.join(self.trios_midi_combined, group + '.mid'),
+                                                     default_ticks_per_beat=480)
         return [(audio_filepath, midi_filepath)]
 
     @staticmethod
