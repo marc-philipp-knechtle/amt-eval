@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import pretty_midi
 from torch.utils.data import Dataset
-from torch import Tensor
 import torch
 
 from utils import midi, log
@@ -24,14 +23,25 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 
-class NoteTrackingDataset(Dataset):
+class AmtEvalDataset(Dataset):
+
+    data: List[Tuple[str, str]]
+
+    def __init__(self, data: List[Tuple[str, str]]):
+        self.data = data
+
+
+    def __iter__(self):
+        for i in range(len(self.data)):
+            yield self[i]
+
+
+class NoteTrackingDataset(AmtEvalDataset):
     path: str
     groups: List[str]
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    data: List[Dict[str, Tensor]]
-    """
-    Tuple[filename,Tensor=basically the .pt files which are saved automatically] 
-    """
+    data: List[Dict[str, str]]
+
 
     def __init__(self, path: str, groups: List[str] = None, logging_filepath: str = None):
         self.path = path
@@ -58,6 +68,8 @@ class NoteTrackingDataset(Dataset):
             """
             for input_file in self.get_files(group):
                 self.data.append((input_file[0], input_file[1]))
+
+        super().__init__(self.data)
 
     def __getitem__(self, index: int) -> Tuple[str, str]:
         return self.data[index]
