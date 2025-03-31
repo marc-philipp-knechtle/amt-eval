@@ -20,11 +20,13 @@ import collections
 def combine_midi_files(midi_filepaths: List[str], combined_midi_savepath: str,
                        default_ticks_per_beat: int = None) -> str:
     """
+    Combined multiple midi files to a type 0 single midi file
     Args:
-        midi_filepaths:
+        midi_filepaths: list of midi's to combine to a single path
         combined_midi_savepath:
-        default_ticks_per_beat: If set, the internal ticks_per_beat of the midi files are overriden and ignored
-
+        default_ticks_per_beat: If set, the internal ticks_per_beat of the midi files are overridden and ignored
+                                otherwise, we use the value from the first midi and throw an error if some other midi
+                                files has a different ticks_per_beat
     Returns: path of the unified midi file
     """
     if not os.path.exists(os.path.dirname(combined_midi_savepath)):
