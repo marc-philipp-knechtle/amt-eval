@@ -12,6 +12,10 @@ import numpy as np
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
+import scipy.io.wavfile
+
+import collections
+
 
 def combine_midi_files(midi_filepaths: List[str], combined_midi_savepath: str,
                        default_ticks_per_beat: int = None) -> str:
@@ -47,7 +51,7 @@ def combine_midi_files(midi_filepaths: List[str], combined_midi_savepath: str,
                     if message.is_meta:
                         continue
                     else:
-                        message.time = int(message.time * (default_ticks_per_beat/midi_file.ticks_per_beat))
+                        message.time = int(message.time * (default_ticks_per_beat / midi_file.ticks_per_beat))
                 all_tracks.append(track)
 
     # merge to type 0 midi because we handle just note tracking for this here.
@@ -86,7 +90,8 @@ def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarra
     Args:
         path: path to midi file
         global_key_offset: sometimes
-    Returns: np.ndarray() with (onset, offset, note, velocity) for each note
+    Returns:
+        np.ndarray() with (onset, offset, note, velocity) for each note
     """
 
     midi = mido.MidiFile(path)
@@ -147,40 +152,89 @@ def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarra
     return np.array(notes)
 
 
-# currently unused, keeping because of potential use
-# def save_p_i_as_midi(path: str, pitches: np.ndarray, intervals: np.ndarray,
-#                      velocities: np.ndarray) -> pretty_midi.PrettyMIDI:
-#     """
-#     Save extracted notes as a MIDI file
-#     Parameters
-#     ----------
-#     path: the path to save the MIDI file
-#     pitches: np.ndarray of bin_indices
-#     intervals: list of (onset_time, offset_time)
-#     velocities: list of velocity values
-#     """
-#
-#     midifile = _create_midi(intervals, pitches, velocities)
-#     audio_data: np.ndarray = midifile.synthesize()
-#     # todo replace this with an implementation of pyfluidsynth
-#     #  (which can use other sounds compared to the default sine wave)
-#     scipy.io.wavfile.write(os.path.join(os.path.dirname(path), os.path.basename(path) + '.wav'), 44100,
-#                            audio_data)
-#     midifile.write(path)
-#     return midifile
-#
-#
-# def _create_midi(intervals: np.ndarray, pitches: np.ndarray, velocities: np.ndarray):
-#     # Remove overlapping intervals (end time should be smaller of equal start time of next note on the same pitch)
-#     intervals_dict = collections.defaultdict(list)
-#     for i in range(len(pitches)):
-#         pitch = int(round(hz_to_midi(pitches[i])))
-#         intervals_dict[pitch].append((intervals[i], i))
-#     _check_pitch_time_intervals(intervals_dict)
-#     piano: pretty_midi.Instrument = _create_piano_midi(intervals_dict, pitches, velocities)
-#     file: pretty_midi.PrettyMIDI = pretty_midi.PrettyMIDI()
-#     file.instruments.append(piano)
-#     return file
+def save_p_i_as_midi(path: str, pitches: np.ndarray, intervals: np.ndarray,
+                     velocities: np.ndarray) -> pretty_midi.PrettyMIDI:
+    """
+    Save extracted notes as a MIDI file
+    Parameters
+    ----------
+    path: the path to save the MIDI file
+    pitches: np.ndarray midi pitches
+    intervals: list of (onset_time, offset_time)
+    velocities: list of velocity values
+    """
+
+    midifile = _create_midi(intervals, pitches, velocities)
+    audio_data: np.ndarray = midifile.synthesize()
+    # todo replace this with an implementation of pyfluidsynth
+    #  (which can use other sounds compared to the default sine wave)
+    scipy.io.wavfile.write(os.path.join(os.path.dirname(path), os.path.basename(path) + '.wav'), 44100,
+                           audio_data)
+    midifile.write(path)
+    return midifile
+
+
+def _create_midi(intervals: np.ndarray, pitches: np.ndarray, velocities: np.ndarray):
+    # Remove overlapping intervals (end time should be smaller of equal start time of next note on the same pitch)
+    intervals_dict = collections.defaultdict(list)
+    for i in range(len(pitches)):
+        pitch = int(pitches[i])  # -> for pitches of different kind, we need to convert them using the mir_eval funct
+        if not 0 <= pitch <= 127:
+            raise RuntimeError(f'Pitch {pitch} is not in the range of MIDI pitches (0-127)')
+        intervals_dict[pitch].append((intervals[i], i))
+    _check_pitch_time_intervals(intervals_dict)
+    piano: pretty_midi.Instrument = _create_piano_midi(intervals_dict, pitches, velocities)
+    file: pretty_midi.PrettyMIDI = pretty_midi.PrettyMIDI()
+    file.instruments.append(piano)
+    return file
+
+
+def _create_piano_midi(intervals_dict, pitches, velocities) -> pretty_midi.Instrument:
+    """
+    n = number of Notes
+    Args:
+        intervals_dict: -> pitch: [(start_realtime, end_realtime), (start_realtime, end_realtime), ...]
+        pitches: shape(n) -> pitches IN MIDI
+        velocities: shape(n)
+    Returns: PIANO midi (pretty_midi.Instrument)
+    """
+    piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
+    piano = pretty_midi.Instrument(program=piano_program)
+    for pitch in intervals_dict:
+        interval_list = intervals_dict[pitch]
+        for interval, i in interval_list:
+            pitch = pitches[i]
+            # I don't know why we have velocities[i] < 0, but this led to an error
+            # The sample did sound correctly. I assume that this was because of the annotations generated by sleeter
+            # Sample with this error Schubert_D911-01_HU33
+            # Todo check and maybe annotate sleeter for this
+            velocity = int(127 * min(velocities[i], 1)) if velocities[i] >= 0 else 0
+            note = pretty_midi.Note(velocity=velocity, pitch=pitch, start=interval[0], end=interval[1])
+            piano.notes.append(note)
+    return piano
+
+
+def _check_pitch_time_intervals(intervals_dict):
+    pitch: int
+    for pitch in intervals_dict:
+        """
+        Describes the list for a single pitch
+        : List[Tuple(starttime, endtime), bin time: int]
+        I think the bin time refers only to the start, but I'm not sure on this
+        """
+        interval_list: List[Tuple[List[2], int]] = intervals_dict[pitch]
+        interval_list.sort(key=lambda x: x[0][0])
+        for i in range(len(interval_list) - 1):
+            end_current_interval_seconds = interval_list[i][0][1]
+            start_next_interval_seconds = interval_list[i + 1][0][0]
+            if end_current_interval_seconds >= start_next_interval_seconds:
+                logging.debug(
+                    f'End time should be smaller of equal start time of next note on the same pitch.\n'
+                    f'Current Pitch End: {end_current_interval_seconds}\n'
+                    f'Next pitch Start: {start_next_interval_seconds}\n'
+                    f'Correcting with end of current = '
+                    f'{min(end_current_interval_seconds, start_next_interval_seconds)}')
+                interval_list[i][0][1] = min(end_current_interval_seconds, start_next_interval_seconds)
 
 
 # def save_np_arr_as_midi(midi_arr: np.ndarray, path: str):
@@ -302,46 +356,6 @@ def save_csv_as_midi(csv_filenames: List[str], path: str, instrument_arg: str = 
 #
 #     # Debugging: In case that there is some doubt that the tsv was correctly created -> create again midi from tsv
 #     # save_np_arr_as_midi(midifile, str(os.path.join(os.path.dirname(tsv_filepath), midi_filename + '.mid')))
-
-
-# def _check_pitch_time_intervals(intervals_dict):
-#     pitch: int
-#     for pitch in intervals_dict:
-#         """
-#         Describes the list for a single pitch
-#         : List[Tuple(starttime, endtime), bin time: int]
-#         I think the bin time refers only to the start, but I'm not sure on this
-#         """
-#         interval_list: List[Tuple[List[2], int]] = intervals_dict[pitch]
-#         interval_list.sort(key=lambda x: x[0][0])
-#         for i in range(len(interval_list) - 1):
-#             end_current_interval_seconds = interval_list[i][0][1]
-#             start_next_interval_seconds = interval_list[i + 1][0][0]
-#             if end_current_interval_seconds >= start_next_interval_seconds:
-#                 logging.warning(
-#                     f'End time should be smaller of equal start time of next note on the same pitch.\n'
-#                     f'Current Pitch End: {end_current_interval_seconds}\n'
-#                     f'Next pitch Start: {start_next_interval_seconds}\n'
-#                     f'Correcting with end of current = '
-#                     f'{min(end_current_interval_seconds, start_next_interval_seconds)}')
-#                 interval_list[i][0][1] = min(end_current_interval_seconds, start_next_interval_seconds)
-
-
-# def _create_piano_midi(intervals_dict, pitches, velocities) -> pretty_midi.Instrument:
-#     piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
-#     piano = pretty_midi.Instrument(program=piano_program)
-#     for pitch in intervals_dict:
-#         interval_list = intervals_dict[pitch]
-#         for interval, i in interval_list:
-#             pitch = int(round(hz_to_midi(pitches[i])))
-#             # I don't know why we have velocities[i] < 0, but this led to an error
-#             # The sample did sound correctly. I assume that this was because of the annotations generated by sleeter
-#             # Sample with this error Schubert_D911-01_HU33
-#             # Todo check and maybe annotate sleeter for this
-#             velocity = int(127 * min(velocities[i], 1)) if velocities[i] >= 0 else 0
-#             note = pretty_midi.Note(velocity=velocity, pitch=pitch, start=interval[0], end=interval[1])
-#             piano.notes.append(note)
-#     return piano
 
 
 if __name__ == '__main__':
