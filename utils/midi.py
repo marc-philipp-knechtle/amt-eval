@@ -94,6 +94,9 @@ def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarra
         global_key_offset: sometimes
     Returns:
         np.ndarray() with (onset, offset, note, velocity) for each note
+        onset and offsets are in realtime (seconds)
+        note is in midi pitch
+        velocity in velocity
     """
 
     midi = mido.MidiFile(path)
