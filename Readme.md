@@ -10,5 +10,5 @@ conda env create -f environment.yaml
 ## Testing
 Running the tests:
 ```shell
-pytest
+cd tests && pytest
 ```
