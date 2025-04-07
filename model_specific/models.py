@@ -68,6 +68,7 @@ class ModelNTPrediction:
 
     def write_metrics(self, metrics: Dict, dataset_name: str, save_path: str):
         total_eval_str: str = ''
+        metrics = {key: val for key, val in sorted(metrics.items(), key = lambda ele: ele[0])}
         for key, values in metrics.items():
             prediction_type, category, name = key.split('/')
             """
