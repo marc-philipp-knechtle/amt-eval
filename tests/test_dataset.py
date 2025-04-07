@@ -16,7 +16,7 @@ dataset_definitions_minimal = {
     'RWC': lambda: RwcDataset(path='dataset_fixtures/RWC', groups=['rwc']),
     'Trios': lambda: TriosDataset(path='dataset_fixtures/TRIOS', groups=['brahms']),
     'CSD': lambda: ChoralSingingDataset(path='dataset_fixtures/ChoralSingingDataset', groups=['Bruckner_LocusIste']),
-    'MuN': lambda: MusicNetDataset(path='dataset_fixtures/MusicNet', groups=['MuN-10-var-test']),
+    'MuN': lambda: MusicNetDataset(path='dataset_fixtures/MusicNet', groups=['MuN-3-test']),
 }
 
 
