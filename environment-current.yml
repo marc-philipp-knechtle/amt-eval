@@ -13,10 +13,11 @@ dependencies:
   - brotli-bin=1.0.9=h5eee18b_8
   - brotli-python=1.0.9=py310h6a678d5_8
   - bzip2=1.0.8=h5eee18b_6
-  - ca-certificates=2024.12.31=h06a4308_0
-  - certifi=2024.12.14=py310h06a4308_0
+  - ca-certificates=2025.1.31=hbcca054_0
+  - certifi=2025.1.31=pyhd8ed1ab_0
   - cffi=1.15.1=py310h74dc2b5_0
   - charset-normalizer=3.3.2=pyhd3eb1b0_0
+  - colorama=0.4.6=pyhd8ed1ab_1
   - contourpy=1.3.1=py310hdb19cb5_0
   - cuda-cudart=12.4.127=h99ab3db_0
   - cuda-cudart_linux-64=12.4.127=hd681fbe_0
@@ -71,6 +72,7 @@ dependencies:
   - libgfortran5=11.2.0=h1234567_1
   - libgomp=11.2.0=h1234567_1
   - libidn2=2.3.4=h5eee18b_0
+  - libjpeg-turbo=2.1.1=h7f98852_0
   - libllvm14=14.0.6=hef93074_0
   - libmpdec=4.0.0=h5eee18b_0
   - libnpp=12.2.5.30=h99ab3db_1
@@ -111,9 +113,9 @@ dependencies:
   - ocl-icd=2.3.2=h5eee18b_1
   - openh264=2.1.1=h4ff587b_0
   - openjpeg=2.5.2=he7f1fd0_0
-  - openssl=1.1.1w=h7f8727e_0
+  - openssl=1.1.1o=h166bdaf_0
   - packaging=24.1=py310h06a4308_0
-  - pandas=2.2.3=py310h6a678d5_0
+  - pandas=1.4.2=py310h769672d_1
   - pillow=11.0.0=py310hfdbf927_0
   - platformdirs=3.10.0=py310h06a4308_0
   - pluggy=1.5.0=py310h06a4308_0
@@ -122,7 +124,7 @@ dependencies:
   - pycparser=2.21=pyhd3eb1b0_0
   - pyparsing=3.2.0=py310h06a4308_0
   - pysocks=1.7.1=py310h06a4308_0
-  - pytest=7.4.4=py310h06a4308_0
+  - pytest=8.3.5=pyhd8ed1ab_0
   - python=3.10.0=h12debd9_5
   - python-dateutil=2.9.0post0=py310h06a4308_2
   - python-tzdata=2023.3=pyhd3eb1b0_0
@@ -144,8 +146,8 @@ dependencies:
   - tk=8.6.14=h39e8969_0
   - tomli=2.0.1=py310h06a4308_0
   - torchaudio=2.3.1=py310_cpu
-  - torchvision=0.15.2=cpu_py310h83e0c9b_0
-  - tqdm=4.66.5=py310h2f386ee_0
+  - torchvision=0.18.1=py310_cpu
+  - tqdm=4.67.1=pyhd8ed1ab_1
   - typing_extensions=4.11.0=py310h06a4308_0
   - tzdata=2024b=h04d1e81_0
   - unicodedata2=15.1.0=py310h5eee18b_0
@@ -157,7 +159,7 @@ dependencies:
   - zstd=1.5.6=hc292b87_0
   - pip:
     - memory-profiler==0.61.0
-    - mir-eval==0.7
+    - mir-eval==0.8.2
     - pip==24.3.1
     - six==1.17.0
     - soundfile==0.12.1
