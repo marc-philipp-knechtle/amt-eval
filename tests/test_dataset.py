@@ -13,10 +13,10 @@ dataset_definitions_minimal = {
     'WRD': lambda: WagnerRingDataset(path='dataset_fixtures/WagnerRing_v0-1', groups=['Furtwangler1953']),
     'B10': lambda: Bach10Dataset(path='dataset_fixtures/Bach10', groups=['07']),
     'PhA': lambda: PhenicxAnechoicDataset(path='dataset_fixtures/PHENICX-Anechoic', groups= ['beethoven']),
-    'RWC': lambda: RwcDataset(groups=['rwc']),
-    'Trios': lambda: TriosDataset(groups=['brahms']),
-    'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
-    'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
+    'RWC': lambda: RwcDataset(path='dataset_fixtures/RWC', groups=['rwc']),
+    'Trios': lambda: TriosDataset(path='dataset_fixtures/TRIOS', groups=['brahms']),
+    'CSD': lambda: ChoralSingingDataset(path='dataset_fixtures/ChoralSingingDataset', groups=['Bruckner_LocusIste']),
+    'MuN': lambda: MusicNetDataset(path='dataset_fixtures/MusicNet', groups=['MuN-10-var-test']),
 }
 
 
