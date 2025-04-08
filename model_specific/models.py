@@ -57,7 +57,30 @@ class ModelNTPrediction:
             prediction_dir:
         Returns: the path to the prediction
         """
-        ...
+        return ModelNTPrediction.find_matching_file(labelname, prediction_dir, '*.mid')
+
+    @staticmethod
+    def find_matching_file(file_basename: str, directory: str, file_ending: str = None) -> str:
+        """
+        We separate the file_basename and file_ending to enable combinations when not the whole filename is known.
+        Then, the caller can just specify a part of the filename.
+        Args:
+            file_basename:
+            directory:
+            file_ending:
+        Returns: one matching filename. If there are multiple options an error is thrown.
+        """
+        if file_ending is not None:
+            all_files = glob(os.path.join(directory, file_ending))
+        else:
+            all_files = glob(directory)
+        matching_files = [file for file in all_files if re.compile(fr".*{re.escape(file_basename)}.*").search(file)]
+        if len(matching_files) != 1:
+            raise RuntimeError(
+                f'Found different amount of files for file_basename {file_basename}. '
+                f'Expected 1, found {len(matching_files)}.'
+                f'length of total predictions: {len(directory)}')
+        return matching_files[0]
 
     @abstractmethod
     def calculate(self, save_path: str) -> Dict:
@@ -68,7 +91,7 @@ class ModelNTPrediction:
 
     def write_metrics(self, metrics: Dict, dataset_name: str, save_path: str):
         total_eval_str: str = ''
-        metrics = {key: val for key, val in sorted(metrics.items(), key = lambda ele: ele[0])}
+        metrics = {key: val for key, val in sorted(metrics.items(), key=lambda ele: ele[0])}
         for key, values in metrics.items():
             prediction_type, category, name = key.split('/')
             """
@@ -88,7 +111,7 @@ class ModelNTPrediction:
                 recall = np.mean(metrics[f'nt/{category}/recall'])
                 f1 = hmean([precision + eps, recall + eps]) - eps
 
-                category = 'f1_from_p_r'
+                name = 'f1_from_p_r'
                 eval_str += f'\n{prediction_type:>32} {category:>32} {name:25}: {f1:.3f}'
             total_eval_str += eval_str + '\n'
             self.logger.info(total_eval_str)
@@ -115,7 +138,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
     MIN_MIDI = 21
     MAX_MIDI = 108
 
-    def __init__(self, dataset_prediction_mapping, logger):
+    def __init__(self, dataset_prediction_mapping: Dict[AmtEvalDataset, str], logger: logging.Logger):
         super().__init__(dataset_prediction_mapping, logger)
 
     def __str__(self):
@@ -436,3 +459,56 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         time = np.arange(roll.shape[0])
         freqs = [roll[t, :].nonzero()[0] for t in time]
         return time, freqs
+
+
+class BpNTPrediction(ModelNTPrediction):
+    # the constant names are copied from the original repository
+    # therefore it might not be possible to maintain a unified naming scheme in this repository
+    FFT_HOP = 256
+
+    SAMPLE_RATE = 22050
+    AUDIO_SAMPLE_RATE = 22050
+
+    ANNOTATIONS_FPS = AUDIO_SAMPLE_RATE // FFT_HOP
+    SCALING_REAL_TO_FRAME = ANNOTATIONS_FPS
+    SCALING_FRAME_TO_REAL = 1.0 / ANNOTATIONS_FPS
+
+    def __init__(self, dataset_prediction_mapping: Dict[AmtEvalDataset, str], logger: logging.Logger):
+        super().__init__(dataset_prediction_mapping, logger)
+
+    def __str__(self):
+        return "BasicPitch"
+
+    def find_matching_midi_prediction(self, labelname, prediction_dir) -> str:
+        return super().find_matching_midi_prediction(labelname, prediction_dir)
+
+    def calculate(self, save_path: str) -> Dict:
+        all_metrics: Dict[str, Any] = {}
+        dataset: AmtEvalDataset
+        prediction_dir: str
+        for dataset, prediction_dir in self.dataset_prediction_mapping.items():
+            metrics: Dict[str, Any] = {'mpe/frame/avg_precision': [],
+                                       'nt/frame/avg_precision': [],
+                                       'nt/note/avg_precision': [],
+                                       'nt/note-with-offset/avg_precision': []}
+            compute_ap_metrics: bool = True
+            for label in tqdm(dataset):
+                basename: str = str(os.path.basename(label[0]).replace('.wav', ''))
+                matching_midi_prediction: str = self.find_matching_midi_prediction(basename, prediction_dir)
+
+                nt_metrics = metrics_midi_nt.calculate_metrics(matching_midi_prediction, label[1])
+
+                if compute_ap_metrics:
+                    matching_npz_file: str = super().find_matching_file(basename, prediction_dir, '*.npz')
+                    data: np.ndarray = np.load(matching_npz_file, allow_pickle=True)['basic_pitch_model_output'].item()
+
+                    note: np.ndarray = data['note']
+                    contour: np.ndarray = data['contour']
+                    onset: np.ndarray = data['onset']
+
+                    self.logger.info(f'Calculating frame ap for dataset: {dataset}')
+
+                    # todo calculate AP values
+
+
+        return all_metrics
