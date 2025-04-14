@@ -1,4 +1,4 @@
-name: amt-eval
+name: amt-eval-cpu
 channels:
     - conda-forge
     - pytorch
@@ -8,13 +8,15 @@ dependencies:
     - librosa==0.9.2
     - pandas
     - python==3.10.0
-    - pip
+    - pip==24.2
     - pytest
     - pytorch
     - torchvision
     - torchaudio
     - tqdm
-    - pytorch-cuda=12.4
+    # fixes Error in torch: ImportError: cannot import name 'TypeIs' from 'typing_extensions'
+    - typing_extensions==4.6.3
+    - pytorch-cpu
     - pretty_midi
     - pip:
         - mir-eval

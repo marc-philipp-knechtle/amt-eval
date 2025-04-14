@@ -11,7 +11,7 @@ conda env create -f environment-current.yaml
 * `environment.yaml` is for upgrading -> fixed real dependencies.
 
 ```shell
-conda env export > environment-current.yml
+conda env export > environment-gpu-current.yaml
 ```
 
 ## Testing

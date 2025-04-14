@@ -1,0 +1,23 @@
+name: amt-eval
+channels:
+    - conda-forge
+    - pytorch
+    - nvidia
+    - defaults
+dependencies:
+    - librosa==0.9.2
+    - pandas
+    - python==3.10.0
+    # todo test if this pip dependency is ok
+    - pip==24.2
+    - pytest
+    - pytorch
+    - torchvision
+    - torchaudio
+    - tqdm
+    - pytorch-cuda=12.4
+    - pretty_midi
+    - pip:
+        - mir-eval
+        - soundfile
+prefix: /home/mpk/anaconda3/envs/amt-eval
