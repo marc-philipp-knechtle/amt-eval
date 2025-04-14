@@ -19,6 +19,7 @@ import re
 import sys
 from collections import defaultdict
 
+
 import mir_eval
 import numpy as np
 import sklearn
@@ -31,6 +32,7 @@ from sklearn import metrics as sk_metrics
 from tqdm import tqdm
 
 import metrics_prediction.metrics_prediction_nt
+import metrics.ap as ap
 import utils.midi
 from data.dataset import AmtEvalDataset
 from metrics_midi import metrics_midi_nt
@@ -232,9 +234,9 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         t_ref, f_ref = self.notes_to_frames(p_ref_midi, i_ref_frames, frame_prediction.shape)
         t_ref_time = t_ref.astype(np.float64) * self.SCALING_FRAME_TO_REAL
 
-        recall_precision_pairs_frame: List[Tuple[float, float]] = []
-        recall_precision_pairs_onset: List[Tuple[float, float]] = []
-        recall_precision_pairs_onset_offset: List[Tuple[float, float]] = []
+        precision_recall_pairs_frame: List[Tuple[float, float]] = []
+        precision_recall_pairs_onset: List[Tuple[float, float]] = []
+        precision_recall_pairs_onset_offset: List[Tuple[float, float]] = []
 
         for threshold in tqdm(np.arange(0, 1.00, 0.05)):
             p_est_midi, i_est_frames, v_est = self.extract_notes(onset_prediction, frame_prediction,
@@ -249,7 +251,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
             frame_metrics: Dict[str, float] = mir_eval.multipitch.evaluate(t_ref_time, f_ref, t_est_time, f_est)
             precision: float = frame_metrics['Precision']
             recall: float = frame_metrics['Recall']
-            recall_precision_pairs_frame.append((recall, precision))
+            precision_recall_pairs_frame.append((precision, recall))
 
             if len(p_est_midi) == 0:
                 p_onset = 0
@@ -264,30 +266,16 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                                                                                                           p_ref_hz,
                                                                                                           i_est_time,
                                                                                                           p_est_hz)
-            recall_precision_pairs_onset.append((r_onset, p_onset))
-            recall_precision_pairs_onset_offset.append((r_onset_offset, p_onset_offset))
+
+            precision_recall_pairs_onset.append((p_onset, r_onset))
+            precision_recall_pairs_onset_offset.append((p_onset_offset, r_onset_offset))
 
         del p_ref_midi, p_ref_hz, i_ref_time, i_ref_frames, v_ref, t_ref, f_ref, t_ref_time
         del p_est_midi, i_est_frames, v_est, p_est_hz, i_est_time, t_est, f_est, t_est_time
 
-        return (self.calc_ap_from_prec_recall_pairs(recall_precision_pairs_frame),
-                self.calc_ap_from_prec_recall_pairs(recall_precision_pairs_onset),
-                self.calc_ap_from_prec_recall_pairs(recall_precision_pairs_onset_offset))
-
-    @staticmethod
-    def calc_ap_from_prec_recall_pairs(recall_precision_pairs: List[Tuple[float, float]]) -> float:
-        recall_precision_pairs = sorted(recall_precision_pairs)
-        total_precision_recall_area = 0
-        prev_recall = 0
-        prev_precision = 0
-        for recall, precision in recall_precision_pairs:
-            area_to_add = (recall - prev_recall) * max(prev_precision, precision)
-            assert area_to_add >= 0
-            total_precision_recall_area += area_to_add
-            prev_precision = precision
-            prev_recall = recall
-        assert total_precision_recall_area >= 0
-        return total_precision_recall_area
+        return (ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_frame),
+                ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset),
+                ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset_offset))
 
     def calc_frame_ap(self, midi_path: str, matching_prediction_pt: str) -> float:
         """
@@ -524,7 +512,7 @@ class BpNTPrediction(ModelNTPrediction):
         shape(num_of_note_events, 4)
         """
         f_annot_pitch = (metrics_prediction.metrics_prediction_nt.compute_annotation_array_nooverlap(note_events,
-                                                                                                    note.shape[0],
-                                                                                                    self.SCALING_REAL_TO_FRAME,
-                                                                                                    'pitch').T)
+                                                                                                     note.shape[0],
+                                                                                                     self.SCALING_REAL_TO_FRAME,
+                                                                                                     'pitch').T)
         print('asdf')

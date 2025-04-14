@@ -22,7 +22,7 @@ from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset, NoteTrac
     AmtEvalDataset
 from data.dataset_determination import dir_contains_other_dirs
 from metrics_midi import metrics_midi_nt
-from model_specific.models import BpNTPrediction
+from model_specific.models import BpNTPrediction, OnsetsAndFramesNTPrediction
 from utils import midi, decoding
 
 import data
@@ -181,7 +181,7 @@ def main():
                 # --------------------------------
                 dataset_prediction_mapping[dataset] = str(predictions_directory)
 
-        model_prediction = BpNTPrediction(dataset_prediction_mapping, logger)
+        model_prediction = OnsetsAndFramesNTPrediction(dataset_prediction_mapping, logger)
         model_prediction.calculate(args.save_path)
     else:
         evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group,
