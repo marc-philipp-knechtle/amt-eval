@@ -311,11 +311,11 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         """
         shape(num_of_note_events, 4) 
         """
-        f_annot_pitch = metrics_prediction.metrics_prediction_nt.compute_annotation_array_nooverlap(note_events,
-                                                                                                    frame_prediction.shape[
-                                                                                                        0],
-                                                                                                    self.SCALING_REAL_TO_FRAME,
-                                                                                                    'pitch').T
+        f_annot_pitch = (
+            metrics_prediction.metrics_prediction_nt.compute_annotation_array_nooverlap(note_events,
+                                                                                        frame_prediction.shape[0],
+                                                                                        self.SCALING_REAL_TO_FRAME,
+                                                                                        'pitch').T)
         """
         shape(num_of_frames, 88)
         0 when note is not active at given frame and pitch, 1 otherwise
@@ -508,7 +508,23 @@ class BpNTPrediction(ModelNTPrediction):
 
                     self.logger.info(f'Calculating frame ap for dataset: {dataset}')
 
+                    self.calc_frame_ap(matching_midi_prediction, note)
+
                     # todo calculate AP values
 
-
         return all_metrics
+
+    def calc_frame_ap(self, midi_path: str, note: np.ndarray):
+        note_events = utils.midi.parse_midi_note_tracking(midi_path)
+        columns_before = np.zeros((note.shape[0], 21), dtype=note.dtype)
+        columns_after = np.zeros((note.shape[0], 19), dtype=note.dtype)
+        note = np.concatenate((columns_before, note), axis=1)
+        note = np.concatenate((note, columns_after), axis=1)
+        """
+        shape(num_of_note_events, 4)
+        """
+        f_annot_pitch = (metrics_prediction.metrics_prediction_nt.compute_annotation_array_nooverlap(note_events,
+                                                                                                    note.shape[0],
+                                                                                                    self.SCALING_REAL_TO_FRAME,
+                                                                                                    'pitch').T)
+        print('asdf')
