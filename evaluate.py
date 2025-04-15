@@ -155,13 +155,6 @@ def main():
     file_handler.setLevel(logging.INFO)
     logger.addHandler(file_handler)
 
-    # if args.prediction_type != '':
-    #     # Currently only for testing purposes
-    #     trios_dataset_testing: NoteTrackingDataset = dataset_determination.dataset_definitions_trans_comparing_paper['Trios']()
-    #     model_prediction = OnsetsAndFramesNTPrediction({trios_dataset_testing: predictions_dir})
-    #     metrics = model_prediction.calculate()
-    #     print('Calculation finished')
-    #     return
 
     if dir_contains_other_dirs(predictions_dir):
         dataset_prediction_mapping: Dict[AmtEvalDataset, str] = {}
