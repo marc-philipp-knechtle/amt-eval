@@ -37,12 +37,12 @@ def calc_ap_from_prec_recall_pairs_manual(precision_recall_pairs: List[Tuple[flo
 
 
 def plot_rec_rec_curve(precision: List[float], recall: List[float], thresholds: List[float] = None):
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(15, 15))
     ax.plot(recall, precision)
     if thresholds is not None:
         thresholds = tuple(thresholds)
         for x, y, thr in zip(recall, precision, thresholds):
-            ax.annotate(f"({x:.2f}, {y:.2f}, {thr})", (x, y), textcoords="offset points", xytext=(5, 5), ha='center')
+            ax.annotate(f"({thr:.2f})", (x, y), textcoords="offset points", xytext=(5, 5), ha='center')
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
     plt.show()

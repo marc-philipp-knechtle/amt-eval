@@ -238,7 +238,8 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         precision_recall_pairs_onset: List[Tuple[float, float]] = []
         precision_recall_pairs_onset_offset: List[Tuple[float, float]] = []
 
-        for threshold in tqdm(np.arange(0, 1.00, 0.05)):
+        # includes threshold 0, but excludes threshold 1.0 -> 1.0 = no predcitions -> not useful...
+        for threshold in tqdm(np.arange(0, 1.0, 0.05)):
             p_est_midi, i_est_frames, v_est = self.extract_notes(onset_prediction, frame_prediction,
                                                                  velocities_prediction, threshold, threshold)
             p_est_midi = p_est_midi + self.MIN_MIDI
@@ -273,9 +274,10 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         del p_ref_midi, p_ref_hz, i_ref_time, i_ref_frames, v_ref, t_ref, f_ref, t_ref_time
         del p_est_midi, i_est_frames, v_est, p_est_hz, i_est_time, t_est, f_est, t_est_time
 
-        return (ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_frame),
-                ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset),
-                ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset_offset))
+        thresholds = np.arange(0, 1.05, 0.05).tolist()
+        return (ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_frame, plot=True, thresholds=thresholds),
+                ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset, plot=False, thresholds=thresholds),
+                ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset_offset, plot=False, thresholds=thresholds))
 
     def calc_frame_ap(self, midi_path: str, matching_prediction_pt: str) -> float:
         """
