@@ -274,7 +274,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         del p_ref_midi, p_ref_hz, i_ref_time, i_ref_frames, v_ref, t_ref, f_ref, t_ref_time
         del p_est_midi, i_est_frames, v_est, p_est_hz, i_est_time, t_est, f_est, t_est_time
 
-        thresholds = np.arange(0, 1.05, 0.05).tolist()
+        thresholds = np.arange(0, 1.0, 0.05).tolist()
         return (ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_frame, plot=False, thresholds=thresholds),
                 ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset, plot=False, thresholds=thresholds),
                 ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset_offset, plot=False, thresholds=thresholds))
