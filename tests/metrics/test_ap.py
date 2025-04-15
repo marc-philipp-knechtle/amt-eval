@@ -14,7 +14,8 @@ def test_ap_one():
 def test_ap_integral():
     # imaginary thresholds: [0, 1]
     prec_recall_values = [(0.0, 1.0), (1.0, 0.0)]
-    ap = calc_ap_from_prec_recall_pairs(prec_recall_values)
+    thresholds = [0.0, 1.0]
+    ap = calc_ap_from_prec_recall_pairs(prec_recall_values, True, thresholds)
 
     assert ap == 0.5
 
