@@ -144,7 +144,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         super().__init__(dataset_prediction_mapping, logger)
 
     def __str__(self):
-        return "OnsetsAndFrames"
+        return "OnsetsAndFramesNTPrediction"
 
     def calculate(self, save_path) -> Dict:
         all_metrics: Dict[str, Any] = {}
@@ -465,7 +465,7 @@ class BpNTPrediction(ModelNTPrediction):
         super().__init__(dataset_prediction_mapping, logger)
 
     def __str__(self):
-        return "BasicPitch"
+        return "BpNTPrediction"
 
     def find_matching_midi_prediction(self, labelname, prediction_dir) -> str:
         return super().find_matching_midi_prediction(labelname, prediction_dir)

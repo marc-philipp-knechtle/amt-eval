@@ -23,6 +23,7 @@ from data.dataset import SchubertWinterreiseDataset, WagnerRingDataset, NoteTrac
 from data.dataset_determination import dir_contains_other_dirs
 from metrics_midi import metrics_midi_nt
 from model_specific.models import BpNTPrediction, OnsetsAndFramesNTPrediction
+import model_specific.models
 from utils import midi, decoding
 
 import data
@@ -59,12 +60,13 @@ def determine_dataset(dataset_parameter_name: str, dataset_group: str = None) ->
     return dataset_class(**kwargs)
 
 
-def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str, save_path: str):
-    logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_group}.')
-    dataset: NoteTrackingDataset = determine_dataset(dataset_name, dataset_group)
-
-    model_prediction = OnsetsAndFramesNTPrediction({dataset: predictions_dir})
-    model_prediction.calculate(save_path)
+# todo reimplement evaluate_inference_dir
+# def evaluate_inference_dir(predictions_dir: str, dataset_name: str, dataset_group: str, save_path: str):
+#     logger.info(f'Evaluating predictions in {predictions_dir} on {dataset_name} with groups {dataset_group}.')
+#     dataset: NoteTrackingDataset = determine_dataset(dataset_name, dataset_group)
+#
+#     model_prediction = OnsetsAndFramesNTPrediction({dataset: predictions_dir})
+#     model_prediction.calculate(save_path)
 
 
 # def evaluate_inference_dataset(dataset, predictions_dir):
@@ -162,23 +164,14 @@ def main():
             for directory in dirs:
                 predictions_directory = os.path.join(root, directory)
                 dataset = dataset_determination.dataset_definitions_trans_comparing_paper[directory]()
-                # ---------------------------------
-                # Previous approach calculating the metrics directly via evaluation script
-                # -> no we do this with the models.py file
-                # dataset_metrics = evaluate_inference_dataset(dataset, predictions_directory)
-                # write_metrics(dataset_metrics, str(dataset), args.save_path)
-                # for key, value in dataset_metrics.items():
-                #     if key not in all_metrics:
-                #         all_metrics[key] = []
-                #     all_metrics[key].extend(value)
-                # --------------------------------
                 dataset_prediction_mapping[dataset] = str(predictions_directory)
 
-        model_prediction = OnsetsAndFramesNTPrediction(dataset_prediction_mapping, logger)
+        model_prediction = getattr(model_specific.models, args.prediction_type)(dataset_prediction_mapping, logger)
         model_prediction.calculate(args.save_path)
-    else:
-        evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group,
-                               save_path=args.save_path)
+    # Todo reimplement inference dir evaluation with correct model determination
+    # else:
+    #     evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group,
+    #                            save_path=args.save_path)
 
 
 if __name__ == '__main__':
