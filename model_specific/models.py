@@ -158,7 +158,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
             metrics: Dict[str, Any] = {'mpe/frame-raw/avg_precision': [],
                                        'mpe/frame/avg_precision': [],
                                        'mpe/note/avg_precision': [],
-                                       'mpe/note-with-offset/avg_precision': [],
+                                       'mpe/note-with-offsets/avg_precision': [],
                                        'nt/frame/avg_precision': [],
                                        'nt/note/avg_precision': [],
                                        'nt/note-with-offset/avg_precision': []}
@@ -189,7 +189,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                                                                                            matching_pt_prediction_onsets)
                     metrics['nt/frame/avg_precision'].append(note_ap_frame)
                     metrics['nt/note/avg_precision'].append(note_ap_onset)
-                    metrics['nt/note-with-offset/avg_precision'].append(note_ap_onset_offset)
+                    metrics['nt/note-with-offsets/avg_precision'].append(note_ap_onset_offset)
 
                 for key, value in nt_metrics.items():
                     if key not in metrics:
