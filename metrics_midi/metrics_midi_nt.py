@@ -1,6 +1,7 @@
 """
 Note Tracking Metrics for midi files
 """
+import itertools
 import sys
 from typing import List, Tuple, Dict
 
@@ -151,4 +152,6 @@ def evaluate_note_based_mpe(p_ref: np.ndarray, i_ref: np.ndarray, p_est: np.ndar
     """
     t_est, f_est = decoding.note_to_multipitch_realtime(p_est, i_est_frames, scaling_frame_to_real)
 
-    return mir_eval.multipitch.evaluate(t_ref, f_ref, t_est, f_est)
+    frame_metrics = mir_eval.multipitch.evaluate(t_ref, f_ref, t_est, f_est)
+    frame_metrics_filtered = {key: frame_metrics[key] for key in ['Precision', 'Recall'] if key in frame_metrics}
+    return frame_metrics_filtered
