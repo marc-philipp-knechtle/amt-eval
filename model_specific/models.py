@@ -94,7 +94,7 @@ class ModelNTPrediction:
         prediction_type = 'Type of prediction (e.g. frame output, nt output)'
         category = 'Evaluation Target (e.g. looking @notes)'
         name = 'type of metric'
-        total_eval_str: str = f'{prediction_type:>32} {category:>32} {name:25}:'
+        total_eval_str: str = f'{prediction_type:>32} {category:>32} {name:25}:\n'
         metrics = {key: val for key, val in sorted(metrics.items(), key=lambda ele: ele[0])}
         for key, values in metrics.items():
             prediction_type, category, name = key.split('/')
