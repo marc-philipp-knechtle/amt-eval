@@ -24,6 +24,13 @@ With scaling_real_to_frame, we can convert from realtime to bin indices
 
 
 def calculate_metrics(prediction_filepath: str, source_filepath: str) -> Dict[str, float]:
+    """
+    Calculates Note Tracking metrics based on two midi files.
+    Args:
+        prediction_filepath: prediction midi
+        source_filepath: source midi
+    Returns: metrics in Dictionary format
+    """
     prediction_note_tracking: np.ndarray = midi.parse_midi_note_tracking(prediction_filepath)
 
     pitches_est: List[int] = []
@@ -91,30 +98,30 @@ def calculate_metrics(prediction_filepath: str, source_filepath: str) -> Dict[st
     metrics['nt/note/precision'] = p
     metrics['nt/note/recall'] = r
     metrics['nt/note/f1'] = f
-    metrics['nt/note/overlap'] = o
+    # metrics['nt/note/overlap'] = o
 
     p, r, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref, p_ref_hz, i_est, p_est_hz)
     metrics['nt/note-with-offsets/precision'] = p
     metrics['nt/note-with-offsets/recall'] = r
     metrics['nt/note-with-offsets/f1'] = f
-    metrics['nt/note-with-offsets/overlap'] = o
+    # metrics['nt/note-with-offsets/overlap'] = o
 
-    p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
-                                                                             i_est, p_est_hz, v_est,
-                                                                             offset_ratio=None,
-                                                                             velocity_tolerance=0.1)
-    metrics['nt/note-with-velocity/precision'] = p
-    metrics['nt/note-with-velocity/recall'] = r
-    metrics['nt/note-with-velocity/f1'] = f
-    metrics['nt/note-with-velocity/overlap'] = o
+    # p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
+    #                                                                          i_est, p_est_hz, v_est,
+    #                                                                          offset_ratio=None,
+    #                                                                          velocity_tolerance=0.1)
+    # metrics['nt/note-with-velocity/precision'] = p
+    # metrics['nt/note-with-velocity/recall'] = r
+    # metrics['nt/note-with-velocity/f1'] = f
+    # metrics['nt/note-with-velocity/overlap'] = o
 
-    p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
-                                                                             i_est, p_est_hz, v_est,
-                                                                             velocity_tolerance=0.1)
-    metrics['nt/note-with-offsets-and-velocity/precision'] = p
-    metrics['nt/note-with-offsets-and-velocity/recall'] = r
-    metrics['nt/note-with-offsets-and-velocity/f1'] = f
-    metrics['nt/note-with-offsets-and-velocity/overlap'] = o
+    # p, r, f, o = mir_eval.transcription_velocity.precision_recall_f1_overlap(i_ref, p_ref_hz, v_ref,
+    #                                                                          i_est, p_est_hz, v_est,
+    #                                                                          velocity_tolerance=0.1)
+    # metrics['nt/note-with-offsets-and-velocity/precision'] = p
+    # metrics['nt/note-with-offsets-and-velocity/recall'] = r
+    # metrics['nt/note-with-offsets-and-velocity/f1'] = f
+    # metrics['nt/note-with-offsets-and-velocity/overlap'] = o
 
     frame_metrics = evaluate_note_based_mpe(p_ref, i_ref, p_est, i_est)
     for key, loss in frame_metrics.items():
