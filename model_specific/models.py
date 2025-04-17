@@ -590,7 +590,10 @@ class BpNTPrediction(ModelNTPrediction):
         dataset: AmtEvalDataset
         prediction_dir: str
         for dataset, prediction_dir in self.dataset_prediction_mapping.items():
-            metrics: Dict[str, Any] = {'mpe/frame/avg_precision': [],
+            metrics: Dict[str, Any] = {'mpe/frame-raw/avg_precision': [],
+                                       'mpe/frame/avg_precision': [],
+                                       'mpe/note/avg_precision': [],
+                                       'mpe/note-with-offsets/avg_precision': [],
                                        'nt/frame/avg_precision': [],
                                        'nt/note/avg_precision': [],
                                        'nt/note-with-offset/avg_precision': []}
@@ -610,14 +613,24 @@ class BpNTPrediction(ModelNTPrediction):
                     onset: np.ndarray = data['onset']
 
                     self.logger.info(f'Calculating frame ap for dataset: {dataset}')
+                    frame_ap: float = self.calc_mpe_frame_ap(matching_midi_prediction, note)
+                    metrics['mpe/frame/avg_precision'].append(frame_ap)
 
-                    self.calc_frame_ap(matching_midi_prediction, note)
-
+                    print("asdf")
                     # todo calculate AP values
 
         return all_metrics
 
-    def calc_frame_ap(self, midi_path: str, note: np.ndarray):
+    def calc_mpe_frame_ap(self, midi_path: str, note: np.ndarray):
+        """
+
+        Args:
+            midi_path:
+            note: shape(num_of_frames, 88)
+
+        Returns:
+
+        """
         note_events = utils.midi.parse_midi_note_tracking(midi_path)
         columns_before = np.zeros((note.shape[0], 21), dtype=note.dtype)
         columns_after = np.zeros((note.shape[0], 19), dtype=note.dtype)
@@ -630,4 +643,5 @@ class BpNTPrediction(ModelNTPrediction):
                                                                                                      note.shape[0],
                                                                                                      self.SCALING_REAL_TO_FRAME,
                                                                                                      'pitch').T)
-        print('asdf')
+        avg_precision_score = sk_metrics.average_precision_score(f_annot_pitch.flatten(), note.flatten())
+        return avg_precision_score
