@@ -11,7 +11,8 @@ def compute_annotation_array_nooverlap(note_events, num_time_frames, fs, annot_t
     From cweiss -> multipitch_architectures
 
     the output array length has the number of time_frames form the computed hcqt -> matches the length of the audio
-    But what happens with the notes? How are the notes warped to the length of the hcqt?
+    (if we give the length of the audio to num_time_frames)
+    If note_events is longer than num_time_frames the note event is cut off.
 
     Args:
         note_events:        np array of note events 'start_sec', 'end_sec', 'pitchclass', 'MIDI_channel'
@@ -49,6 +50,7 @@ def compute_annotation_array_nooverlap(note_events, num_time_frames, fs, annot_t
     note_events_frameinds[:, :2] = np.floor(note_events_frameinds[:, :2] * fs).astype(int)
     """
     We convert here the start and end times of the notes to frame indices
+    (multiply the start and end times with scaling) 
     """
     durations = note_events_frameinds[:, 1] - note_events_frameinds[:, 0]
     """
