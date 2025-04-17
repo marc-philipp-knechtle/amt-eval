@@ -60,6 +60,7 @@ def compute_annotation_array_nooverlap(note_events, num_time_frames, fs, annot_t
     vanishing_events = np.array(np.nonzero((durations < 1).astype(int))).squeeze()
     """
     seems very unlikely, because we use frametime, durations smaller than 1 should not exist
+    Because this does very likely not contain anything, we can ignore the output from here. 
     """
     vanishing_endtimes = np.unique(note_events_frameinds[vanishing_events, 1])
     for vind in range(vanishing_endtimes.shape[0]):
