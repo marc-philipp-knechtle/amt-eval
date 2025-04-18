@@ -86,6 +86,23 @@ def combine_midi_files_type0(midi_filepaths: List[str], combined_midi_savepath: 
     return combined_midi_savepath
 
 
+def get_p_i_v_from_midi(midi_path: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Args:
+        midi_path: midi to get the values from
+    Returns: Tuple(np.ndarray(p_ref_midi), np.ndarray(i_ref_time), np.ndarray(v_ref))
+    """
+    ref: np.ndarray = parse_midi_note_tracking(midi_path)
+    pitches: List = []
+    intervals: List = []
+    velocities: List = []
+    for start_time, end_time, pitch, velocity in ref:
+        pitches.append(int(pitch))
+        intervals.append([start_time, end_time])
+        velocities.append(velocity)
+    return np.array(pitches), np.array(intervals), np.array(velocities)
+
+
 def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarray:
     """
     open midi file and return np.array() of (onset, offset, note, velocity) rows
