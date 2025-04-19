@@ -135,7 +135,6 @@ dependencies:
   - pytz=2024.1=py310h06a4308_0
   - readline=8.2=h5eee18b_0
   - requests=2.32.3=py310h06a4308_1
-  - resampy=0.4.3=pyhd8ed1ab_0
   - scikit-learn=1.5.1=py310h1128e8f_0
   - scipy=1.14.1=py310heeff2f4_0
   - setuptools=75.1.0=py310h06a4308_0
@@ -158,9 +157,12 @@ dependencies:
   - zlib=1.2.13=h5eee18b_1
   - zstd=1.5.6=hc292b87_0
   - pip:
+    - basic-pitch==0.4.0
     - memory-profiler==0.61.0
     - mir-eval==0.8.2
     - pip==24.3.1
+    - resampy==0.4.2
     - six==1.17.0
     - soundfile==0.12.1
+    - tflite-runtime==2.14.0
 prefix: /home/mpk/anaconda3/envs/amt-eval

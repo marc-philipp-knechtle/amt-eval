@@ -19,6 +19,7 @@ dependencies:
     - pytorch-cpu
     - pretty_midi
     - pip:
+        - basic-pitch
         - mir-eval
         - soundfile
 prefix: /home/mpk/anaconda3/envs/amt-eval
