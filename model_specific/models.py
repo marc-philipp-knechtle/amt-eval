@@ -177,7 +177,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 if compute_ap_metrics:
                     matching_pt_prediction_frames: str = self.find_matching_pt_prediction_frames(basename,
                                                                                                  prediction_dir)
-                    self.logger.info(f'Calculating frame ap for dataset: {dataset}')
+                    self.logger.info(f'Calculating frame ap for label: {basename}')
                     frame_ap: float = self.calc_mpe_frame_ap(label[1], matching_pt_prediction_frames)
                     metrics['mpe/frame-raw/avg_precision'].append(frame_ap)
                     frame_ap_frame, frame_ap_onset, frame_ap_onset_offset = self.calc_frame_ap(label[1],
@@ -188,7 +188,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
 
                     matching_pt_prediction_onsets: str = self.find_matching_pt_prediction_onsets(basename,
                                                                                                  prediction_dir)
-                    self.logger.info(f'Calculating note ap for dataset: {dataset}')
+                    self.logger.info(f'Calculating note ap for label: {basename}')
                     note_ap_frame, note_ap_onset, note_ap_onset_offset = self.calc_note_ap(label[1],
                                                                                            matching_pt_prediction_frames,
                                                                                            matching_pt_prediction_onsets)
