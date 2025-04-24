@@ -235,7 +235,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
 
         executed_thresholds = []  # Just used for visualization purposes
         # includes threshold 0, but excludes threshold 1.0 -> 1.0 = no predcitions -> not useful...
-        for threshold in tqdm(np.arange(0, 1.0, 0.05)):
+        for threshold in np.arange(0, 1.0, 0.05):
             p_est_midi, i_est_frames, v_est = self.extract_notes_from_frames(frame_prediction, threshold)
             p_est_midi = p_est_midi + self.MIN_MIDI
             p_est_hz = np.array([mir_eval.util.midi_to_hz(p) for p in p_est_midi])
@@ -309,7 +309,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
 
         thresholds = []
         # includes threshold 0, but excludes threshold 1.0 -> 1.0 = no predcitions -> not useful...
-        for threshold in tqdm(np.arange(0, 1.0, 0.05)):
+        for threshold in np.arange(0, 1.0, 0.05):
             p_est_midi, i_est_frames, v_est = self.extract_notes(onset_prediction, frame_prediction,
                                                                  velocities_prediction, threshold, threshold)
             p_est_midi = p_est_midi + self.MIN_MIDI
