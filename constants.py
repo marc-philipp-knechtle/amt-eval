@@ -1,5 +1,7 @@
 import torch
 
+
+# TODO -> all these constants are model specific -> move to models.py and delete
 SAMPLE_RATE = 16000
 HOP_LENGTH = SAMPLE_RATE * 32 // 1000
 ONSET_LENGTH = SAMPLE_RATE * 32 // 1000
@@ -15,3 +17,5 @@ MEL_FMAX = SAMPLE_RATE // 2
 WINDOW_LENGTH = 2048
 
 DEFAULT_DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+DEFAULT_VELOCITY = 70

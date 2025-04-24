@@ -16,6 +16,8 @@ import scipy.io.wavfile
 
 import collections
 
+import constants
+
 
 def combine_midi_files(midi_filepaths: List[str], combined_midi_savepath: str,
                        default_ticks_per_beat: int = None) -> str:
@@ -103,6 +105,18 @@ def get_p_i_v_from_midi(midi_path: str) -> Tuple[np.ndarray, np.ndarray, np.ndar
     return np.array(pitches), np.array(intervals), np.array(velocities)
 
 
+def get_p_i_v_from_note_events(note_events: List) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    pitches: List = []
+    intervals: List = []
+    velocities: List = []
+    for start_time_s, end_time_s, pitch_midi, amplitude, some_other_value in note_events:
+        pitches.append(pitch_midi)
+        intervals.append([start_time_s, end_time_s])
+        velocities.append(constants.DEFAULT_VELOCITY)
+
+    return np.array(pitches), np.array(intervals), np.array(velocities)
+
+
 def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarray:
     """
     open midi file and return np.array() of (onset, offset, note, velocity) rows
@@ -119,10 +133,10 @@ def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarra
     midi = mido.MidiFile(path)
 
     if len(midi.tracks) > 2:
-        logging.warning(f'Multiple midi tracks detected in {path}. Found Tracks:')
+        logging.debug(f'Multiple midi tracks detected in {path}. Found Tracks:')
         for track in midi.tracks:
-            logging.warning(track.name if track.name != '' else 'Empty Track Name')
-        logging.warning('Because this evaluation focuses on note tracking, we handle all the midi tracks as the same.')
+            logging.debug(track.name if track.name != '' else 'Empty Track Name')
+        logging.debug('Because this evaluation focuses on note tracking, we handle all the midi tracks as the same.')
 
     time = 0
     sustain = False
@@ -392,7 +406,7 @@ if __name__ == '__main__':
         # noinspection PyTypeChecker
         np.savetxt(output_file, midi_data, '%.6f', '\t', header='onset\toffset\tnote\tvelocity')
 
-
+    
     def files():
         for input_file in tqdm(sys.argv[1:]):
             if input_file.endswith('.mid'):
