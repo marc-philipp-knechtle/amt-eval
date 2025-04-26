@@ -17,5 +17,5 @@ conda env export > environment-gpu-current.yaml
 ## Testing
 Running the tests:
 ```shell
-cd tests && pytest
+pytest
 ```
