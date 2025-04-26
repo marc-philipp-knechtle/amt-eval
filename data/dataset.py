@@ -24,12 +24,10 @@ logger.addHandler(console_handler)
 
 
 class AmtEvalDataset(Dataset):
-
     data: List[Tuple[str, str]]
 
     def __init__(self, data: List[Tuple[str, str]]):
         self.data = data
-
 
     def __iter__(self):
         for i in range(len(self.data)):
@@ -41,7 +39,6 @@ class NoteTrackingDataset(AmtEvalDataset):
     groups: List[str]
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     data: List[Dict[str, str]]
-
 
     def __init__(self, path: str, groups: List[str] = None, logging_filepath: str = None):
         self.path = path
@@ -597,6 +594,10 @@ class MusicNetDataset(NoteTrackingDataset):
                             '2104', '2105', '2106']
     }
 
+    validation_set_files = ['1729', '1733', '1755', '1756', '1765', '1766', '1805', '1807', '1811', '1828', '1829',
+                            '1932', '1933', '2081', '2082', '2083', '2157', '2158', '2167', '2186', '2194', '2221',
+                            '2222', '2289', '2315', '2318', '2341', '2342', '2480', '2481', '2629', '2632', '2633']
+
     def __init__(self, path='datasets/MusicNet', groups=None):
         self.mun_audio = os.path.join(path, 'musicnet')
         self.mun_generated_midi_annotations = os.path.join(path, '_musicnet_generated_midi')
@@ -655,6 +656,10 @@ class MusicNetDataset(NoteTrackingDataset):
             test_labels: List[str] = self.test_set_files[group_test]
             for filepath in all_audio_filepaths:
                 if not any(test_label in filepath for test_label in test_labels):
+                    audio_filepaths_filtered.append(filepath)
+        elif 'validation' in group:
+            for filepath in all_audio_filepaths:
+                if any(validation_label in filepath for validation_label in self.validation_set_files):
                     audio_filepaths_filtered.append(filepath)
 
         if len(audio_filepaths_filtered) < 2:

@@ -17,3 +17,16 @@ dataset_definitions_trans_comparing_paper = {
     'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
     'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
 }
+
+validation_dataset_comparing_paper = {
+    'B10': lambda: Bach10Dataset(groups=['05', '06']),
+    'CSD': lambda: ChoralSingingDataset(groups=['Guerrero_NinoDios']),
+    'MuN': lambda: MusicNetDataset(groups=['MuN-validation']),
+    # 'PhA': ..., -> PhA is not included in the validation set
+    # 'RWC': lambda: RwcDataset(groups=['rwc']),
+    'SWD': lambda: SchubertWinterreiseDataset(groups=['AL98', 'FI55'], neither_split='validation'),
+    # Trios
+}
+"""
+Commented datasets are not part of the normal validation set 
+"""
