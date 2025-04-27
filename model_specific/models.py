@@ -733,7 +733,7 @@ class BpNTPrediction(ModelNTPrediction):
         thresholds = []
         # starting at 0.1 because basic_pitch.note_creation.model_output_to_notes is very bad with low threshold
         # todo investigate this
-        for threshold in tqdm(np.arange(0.1, 1.0, 0.05)):
+        for threshold in np.arange(0.1, 1.0, 0.05):
             midifile, note_events = basic_pitch.note_creation.model_output_to_notes(bp_model_output,
                                                                                     onset_thresh=threshold,
                                                                                     frame_thresh=threshold)
@@ -797,7 +797,7 @@ class BpNTPrediction(ModelNTPrediction):
         precision_recall_pairs_onset_offset: List[Tuple[float, float]] = []
 
         executed_thresholds = []  # Just used for visualization purposes
-        for threshold in tqdm(np.arange(0, 1.0, 0.05)):
+        for threshold in np.arange(0, 1.0, 0.05):
             p_est_midi, i_est_frames, v_est = OnsetsAndFramesNTPrediction.extract_notes_from_frames(
                 torch.from_numpy(note).float(), threshold)
             p_est_midi = p_est_midi + self.MIN_MIDI
