@@ -29,8 +29,6 @@ def main():
     parser.add_argument('prediction_type', type=str)
     args: argparse.Namespace = parser.parse_args()
 
-    datetime_str: str = datetime.now().strftime('%y%m%d-%H%M')
-
     if dataset_determination.dir_contains_other_dirs(args.predictions_dir):
         dataset_prediction_mapping: Dict[AmtEvalDataset, str] = {}
         for root, dirs, files in os.walk(args.predictions_dir):
@@ -44,6 +42,7 @@ def main():
                         f'Skipping dataset {directory} because it is not in validation_dataset_comparing_paper.')
 
         model_prediction = getattr(model_specific.models, args.prediction_type)(dataset_prediction_mapping, logger)
+        logger.info(f'Computed optimal averaged threshold: {model_prediction.optimal_threshold}')
 
 
 if __name__ == '__main__':
