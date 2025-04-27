@@ -78,6 +78,7 @@ class ModelNTPrediction:
             all_files = glob(directory)
         matching_files = [file for file in all_files if re.compile(fr".*{re.escape(file_basename)}.*").search(file)]
         if len(matching_files) != 1:
+            # todo fix this edge case with real handling for CSD files
             if len(matching_files) == 5:
                 # edge case handling the CSD naming scheme
                 matching_files = sorted(matching_files)
@@ -87,6 +88,56 @@ class ModelNTPrediction:
                 f'Expected 1, found {len(matching_files)}.'
                 f'length of total predictions: {len(directory)}')
         return matching_files[0]
+
+    def get_p_i_v_attributes_from_midi(self, midi_path: str, shape, scaling_real_to_frame, scaling_frame_to_real):
+        p_midi, i_time, v = midi.get_p_i_v_from_midi(midi_path)
+        i_frames = (i_time * scaling_real_to_frame).astype(int)
+        p_hz = np.array([mir_eval.util.midi_to_hz(p) for p in p_midi])
+
+        # todo this might be wrong! (giving the shape directly) :(
+        # todo this might be wrong because of way notes_to_frames is implemented -> it stops after 88 piano keys
+        t, f = self.notes_to_frames(p_midi, i_frames, shape)
+        t_time = t.astype(np.float64) * scaling_frame_to_real
+
+        return {
+            'p_midi': p_midi,
+            'p_hz': p_hz,
+            'i_time': i_time,
+            'i_frames': i_frames,
+            'v': v,
+            't': t,
+            't_time': t_time,
+            'f': f
+        }
+
+    @staticmethod
+    def notes_to_frames(pitches, intervals, shape):
+        """
+        !!!
+        We copied this method form the Onsets and Frames repository!
+        Please check with the original implementation before modifying this code.
+        !!!
+
+        Parameters
+        ----------
+        pitches: list of pitch bin indices
+        intervals: list of [onset, offset] ranges of bin indices
+        shape: the shape of the original piano roll, [n_frames, n_bins]
+
+        Returns
+        -------
+        time: np.ndarray containing the frame indices, these should be evenly spaced
+        freqs: list of np.ndarray, each containing the frequency bin indices. The freqs for a frame indice can be empty
+        """
+        roll = np.zeros(tuple(shape))
+        for pitch, (onset, offset) in zip(pitches, intervals):
+            if pitch >= 88:
+                continue
+            roll[onset:offset, pitch] = 1
+
+        time = np.arange(roll.shape[0])
+        freqs = [roll[t, :].nonzero()[0] for t in time]
+        return time, freqs
 
     @abstractmethod
     def calculate(self, save_path: str) -> Dict:
@@ -172,16 +223,15 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 onset_prediction: torch.FloatTensor = torch.load(matching_pt_prediction_onsets,
                                                                  map_location='cpu').cpu()
                 velocities_prediction: torch.FloatTensor = \
-                    (torch.full_like(frame_prediction, fill_value=60, dtype=torch.float32)) # noqa
+                    (torch.full_like(frame_prediction, fill_value=60, dtype=torch.float32))  # noqa
 
-                ref: dict = self.get_p_i_v_attributes_from_midi(label[1], frame_prediction.shape)
+                ref: dict = self.get_p_i_v_attributes_from_midi(label[1], frame_prediction.shape,
+                                                                self.SCALING_REAL_TO_FRAME, self.SCALING_FRAME_TO_REAL)
 
                 best_threshold: float = -1
                 best_threshold_value: np.float64 = np.float64(-1)
 
                 for threshold in np.arange(0.1, 0.9, 0.05):
-                    # calculate frame metrics
-                    # calculate onset metrics
                     # -> Using F1 score (harmonic mean) between precision and recall as important value
                     est: dict = self.get_p_i_v_attributes_from_tensor(frame_prediction,
                                                                       onset_prediction,
@@ -194,9 +244,9 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                         ref['i_time'],
                         ref['p_hz'],
                         est['i_time'],
-                        est['p_hz'])
+                        est['p_hz'], offset_ratio=None)
 
-                    current_val: np.float64 = hmean([frame_f1, f_onset]) # noqa (returns float64 not ndarray)
+                    current_val: np.float64 = hmean([frame_f1, f_onset])  # noqa (returns float64 not ndarray)
                     if best_threshold_value < current_val:
                         best_threshold_value = current_val
                         best_threshold = threshold
@@ -320,28 +370,9 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset_offset, plot=False,
                                                   thresholds=thresholds))
 
-    def get_p_i_v_attributes_from_midi(self, midi_path: str, shape):
-        p_midi, i_time, v = midi.get_p_i_v_from_midi(midi_path)
-        i_frames = (i_time * self.SCALING_REAL_TO_FRAME).astype(int)
-        p_hz = np.array([mir_eval.util.midi_to_hz(p) for p in p_midi])
-
-        # todo this might be wrong! (giving the shape directly) :(
-        t, f = self.notes_to_frames(p_midi, i_frames, shape)
-        t_time = t.astype(np.float64) * self.SCALING_FRAME_TO_REAL
-
-        return {
-            'p_midi': p_midi,
-            'p_hz': p_hz,
-            'i_time': i_time,
-            'i_frames': i_frames,
-            'v': v,
-            't': t,
-            't_time': t_time,
-            'f': f
-        }
-
     def get_p_i_v_attributes_from_tensor(self, frame_prediction: torch.FloatTensor, onset_prediction: torch.FloatTensor,
                                          velocities_prediction: torch.FloatTensor, threshold: float):
+        # todo refactor this -> we don't get this exactly from the tensor but from the note_events -> signature is misleading
         p_midi, i_frames, v = self.extract_notes(onset_prediction, frame_prediction, velocities_prediction, threshold,
                                                  threshold)
         p_midi = p_midi + self.MIN_MIDI
@@ -596,35 +627,6 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 velocities.append(70)
         return np.array(pitches), np.array(intervals), np.array(velocities)
 
-    @staticmethod
-    def notes_to_frames(pitches, intervals, shape):
-        """
-        !!!
-        We copied this method form the Onsets and Frames repository!
-        Please check with the original implementation before modifying this code.
-        !!!
-
-        Parameters
-        ----------
-        pitches: list of pitch bin indices
-        intervals: list of [onset, offset] ranges of bin indices
-        shape: the shape of the original piano roll, [n_frames, n_bins]
-
-        Returns
-        -------
-        time: np.ndarray containing the frame indices
-        freqs: list of np.ndarray, each containing the frequency bin indices
-        """
-        roll = np.zeros(tuple(shape))
-        for pitch, (onset, offset) in zip(pitches, intervals):
-            if pitch >= 88:
-                continue
-            roll[onset:offset, pitch] = 1
-
-        time = np.arange(roll.shape[0])
-        freqs = [roll[t, :].nonzero()[0] for t in time]
-        return time, freqs
-
 
 class BpNTPrediction(ModelNTPrediction):
     # the constant names are copied from the original repository
@@ -648,6 +650,70 @@ class BpNTPrediction(ModelNTPrediction):
 
     def find_matching_midi_prediction(self, labelname, prediction_dir) -> str:
         return super().find_matching_midi_prediction(labelname, prediction_dir)
+
+    def get_p_i_v_attributes_from_note_events(self, note_events, shape):
+        p_midi, i_time, v = midi.get_p_i_v_from_note_events(note_events)
+        p_hz = np.array([mir_eval.util.midi_to_hz(p) for p in p_midi])
+        i_frames = (i_time * self.SCALING_REAL_TO_FRAME).astype(int)
+
+        t, f = self.notes_to_frames(p_midi, i_frames, shape)
+        t_time = t.astype(np.float64) * self.SCALING_FRAME_TO_REAL
+
+        return {'p_midi': p_midi, 'p_hz': p_hz, 'i_time': i_time, 'i_frames': i_frames, 'v': v, 't': t,
+                't_time': t_time, 'f': f}
+
+    def optimal_threshold(self) -> float:
+        best_thresholds: List[float] = []
+        for dataset, prediction_dir in self.dataset_prediction_mapping.items():
+            # todo assert that .npz files exist
+            for label in tqdm(dataset):
+                basename: str = str(os.path.basename(label[0]).replace('.wav', ''))
+                matching_npz_file: str = super().find_matching_file(basename, prediction_dir, '*.npz')
+                data: np.ndarray = np.load(matching_npz_file, allow_pickle=True)['basic_pitch_model_output'].item()
+
+                note: np.ndarray = data['note']
+                contour: np.ndarray = data['contour']
+                onset: np.ndarray = data['onset']
+                bp_model_output = {
+                    'note': note,
+                    'onset': onset,
+                    'contour': contour
+                }
+
+                ref = self.get_p_i_v_attributes_from_midi(label[1], note.shape, self.SCALING_REAL_TO_FRAME,
+                                                          self.SCALING_FRAME_TO_REAL)
+
+                best_threshold: float = -1
+                best_threshold_value: np.float64 = np.float64(-1)
+
+                for threshold in np.arange(0.2, 0.8, 0.05):
+                    # todo this method needs very long time to run @ small thresholds
+                    # -> python profile to optimize this?
+                    midifile, note_events = basic_pitch.note_creation.model_output_to_notes(bp_model_output,
+                                                                                            onset_thresh=threshold,
+                                                                                            frame_thresh=threshold)
+                    est = self.get_p_i_v_attributes_from_note_events(note_events, note.shape)
+
+                    if len(est['p_midi']) == 0:
+                        continue
+
+                    frame_metrics: Dict[str, float] = mir_eval.multipitch.evaluate(ref['t_time'], ref['f'],
+                                                                                   est['t_time'], est['f'])
+                    frame_f1 = hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps
+                    p_onset, r_onset, f_onset, o_onset = mir_eval.transcription.precision_recall_f1_overlap(
+                        ref['i_time'],
+                        ref['p_hz'],
+                        est['i_time'],
+                        est['p_hz'], offset_ratio=None)
+
+                    current_val: np.float64 = hmean([frame_f1, f_onset])  # noqa (returns float64 not ndarray)
+                    if best_threshold_value < current_val:
+                        best_threshold_value = current_val
+                        best_threshold = threshold
+                assert best_threshold > 0
+                best_thresholds.append(best_threshold)
+
+        return float(np.mean(best_thresholds))
 
     def calculate(self, save_path: str) -> Dict:
         all_metrics: Dict[str, Any] = {}
@@ -865,32 +931,3 @@ class BpNTPrediction(ModelNTPrediction):
                                                                                                      'pitch').T)
         avg_precision_score = sk_metrics.average_precision_score(f_annot_pitch.flatten(), note.flatten())
         return avg_precision_score
-
-    @staticmethod
-    def notes_to_frames(pitches, intervals, shape):
-        """
-        !!!
-        We copied this method form the Onsets and Frames repository!
-        Please check with the original implementation before modifying this code.
-        !!!
-
-        Parameters
-        ----------
-        pitches: list of pitch bin indices
-        intervals: list of [onset, offset] ranges of bin indices
-        shape: the shape of the original piano roll, [n_frames, n_bins]
-
-        Returns
-        -------
-        time: np.ndarray containing the frame indices, these should be evenly spaced
-        freqs: list of np.ndarray, each containing the frequency bin indices. The freqs for a frame indice can be empty
-        """
-        roll = np.zeros(tuple(shape))
-        for pitch, (onset, offset) in zip(pitches, intervals):
-            if pitch >= 88:
-                continue
-            roll[onset:offset, pitch] = 1
-
-        time = np.arange(roll.shape[0])
-        freqs = [roll[t, :].nonzero()[0] for t in time]
-        return time, freqs

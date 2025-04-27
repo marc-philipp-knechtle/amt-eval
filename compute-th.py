@@ -42,7 +42,7 @@ def main():
                         f'Skipping dataset {directory} because it is not in validation_dataset_comparing_paper.')
 
         model_prediction = getattr(model_specific.models, args.prediction_type)(dataset_prediction_mapping, logger)
-        logger.info(f'Computed optimal averaged threshold: {model_prediction.optimal_threshold}')
+        logger.info(f'Computed optimal averaged threshold: {model_prediction.optimal_threshold()}')
 
 
 if __name__ == '__main__':
