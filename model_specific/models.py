@@ -213,7 +213,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         best_thresholds: List[float] = []
         for dataset, prediction_dir in self.dataset_prediction_mapping.items():
             assert OnsetsAndFramesNTPrediction.pt_predictions_exist(prediction_dir)
-            for label in dataset:
+            for label in tqdm(dataset):
                 basename = os.path.basename(label[0]).replace('.wav', '')
                 matching_pt_prediction_frames: str = self.find_matching_pt_prediction_frames(basename, prediction_dir)
                 matching_pt_prediction_onsets: str = self.find_matching_pt_prediction_onsets(basename, prediction_dir)
