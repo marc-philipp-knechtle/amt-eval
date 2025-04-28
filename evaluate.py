@@ -135,6 +135,10 @@ def main():
                         help='Comma-separated dataset groups which we evaluate on.')
     parser.add_argument('--save-path', default=None)
     parser.add_argument('--prediction-type', type=str, default='')
+    parser.add_argument('--frame-threshold', type=float, default=None,
+                        help='Threshold for frame.')
+    parser.add_argument('--onset-threshold', type=float, default=None, help='Threshold for onset.')
+    parser.add_argument('--calc-ap', type=bool, default=False, help='Calculate average precision.')
     args: argparse.Namespace = parser.parse_args()
     dataset_name: str = parser.parse_args().dataset_name
     predictions_dir = args.predictions_dir
@@ -157,7 +161,6 @@ def main():
     file_handler.setLevel(logging.INFO)
     logger.addHandler(file_handler)
 
-
     if dir_contains_other_dirs(predictions_dir):
         dataset_prediction_mapping: Dict[AmtEvalDataset, str] = {}
         for root, dirs, files in os.walk(predictions_dir):
@@ -167,7 +170,8 @@ def main():
                 dataset_prediction_mapping[dataset] = str(predictions_directory)
 
         model_prediction = getattr(model_specific.models, args.prediction_type)(dataset_prediction_mapping, logger)
-        model_prediction.calculate(args.save_path)
+        model_prediction.calculate(args.save_path, frame_threshold=args.frame_threshold,
+                                   onset_threshold=args.onset_threshold, calc_ap=args.calc_ap)
     # Todo reimplement inference dir evaluation with correct model determination
     # else:
     #     evaluate_inference_dir(predictions_dir, dataset_name, dataset_group=args.dataset_group,
