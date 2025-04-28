@@ -231,7 +231,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 best_threshold: float = -1
                 best_threshold_value: np.float64 = np.float64(-1)
 
-                for threshold in np.arange(0.1, 0.9, 0.05):
+                for threshold in np.arange(0.05, 0.9, 0.05):
                     # -> Using F1 score (harmonic mean) between precision and recall as important value
                     est: dict = self.get_p_i_v_attributes_from_tensor(frame_prediction,
                                                                       onset_prediction,
@@ -246,7 +246,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                         est['i_time'],
                         est['p_hz'], offset_ratio=None)
 
-                    current_val: np.float64 = hmean([frame_f1, f_onset])  # noqa (returns float64 not ndarray)
+                    current_val: np.float64 = np.mean([frame_f1, f_onset])  # noqa (returns float64 not ndarray)
                     if best_threshold_value < current_val:
                         best_threshold_value = current_val
                         best_threshold = threshold
@@ -686,7 +686,7 @@ class BpNTPrediction(ModelNTPrediction):
                 best_threshold: float = -1
                 best_threshold_value: np.float64 = np.float64(-1)
 
-                for threshold in np.arange(0.2, 0.8, 0.05):
+                for threshold in np.arange(0.05, 0.8, 0.05):
                     # todo this method needs very long time to run @ small thresholds
                     # -> python profile to optimize this?
                     midifile, note_events = basic_pitch.note_creation.model_output_to_notes(bp_model_output,
@@ -706,7 +706,7 @@ class BpNTPrediction(ModelNTPrediction):
                         est['i_time'],
                         est['p_hz'], offset_ratio=None)
 
-                    current_val: np.float64 = hmean([frame_f1, f_onset])  # noqa (returns float64 not ndarray)
+                    current_val: np.float64 = np.mean([frame_f1, f_onset])  # noqa (returns float64 not ndarray)
                     if best_threshold_value < current_val:
                         best_threshold_value = current_val
                         best_threshold = threshold
