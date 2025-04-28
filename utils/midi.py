@@ -188,8 +188,8 @@ def parse_midi_note_tracking(path: str, global_key_offset: int = 0) -> np.ndarra
     return np.array(notes)
 
 
-def save_p_i_as_midi(path: str, pitches: np.ndarray, intervals: np.ndarray,
-                     velocities: np.ndarray) -> pretty_midi.PrettyMIDI:
+def save_p_i_as_midi(path, pitches: np.ndarray, intervals: np.ndarray,
+                     velocities: np.ndarray, sonify: bool = False) -> pretty_midi.PrettyMIDI:
     """
     Save extracted notes as a MIDI file
     Parameters
@@ -198,14 +198,16 @@ def save_p_i_as_midi(path: str, pitches: np.ndarray, intervals: np.ndarray,
     pitches: np.ndarray midi pitches
     intervals: list of (onset_time, offset_time)
     velocities: list of velocity values
+    sonify:
     """
 
     midifile = _create_midi(intervals, pitches, velocities)
-    audio_data: np.ndarray = midifile.synthesize()
     # todo replace this with an implementation of pyfluidsynth
     #  (which can use other sounds compared to the default sine wave)
-    scipy.io.wavfile.write(os.path.join(os.path.dirname(path), os.path.basename(path) + '.wav'), 44100,
-                           audio_data)
+    if sonify:
+        audio_data: np.ndarray = midifile.synthesize()
+        scipy.io.wavfile.write(os.path.join(os.path.dirname(path), os.path.basename(path) + '.wav'), 44100,
+                               audio_data)
     midifile.write(path)
     return midifile
 
@@ -406,7 +408,7 @@ if __name__ == '__main__':
         # noinspection PyTypeChecker
         np.savetxt(output_file, midi_data, '%.6f', '\t', header='onset\toffset\tnote\tvelocity')
 
-    
+
     def files():
         for input_file in tqdm(sys.argv[1:]):
             if input_file.endswith('.mid'):
