@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="evaluate dir of-maestro" type="PythonConfigurationType" factoryName="Python">
+  <configuration default="false" name="evaluate dir of-04-17-comparing-weighted" type="PythonConfigurationType" factoryName="Python" singleton="false">
     <module name="amt-eval" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/evaluate.py" />
-    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/of-maestro/rest --save-path /media/mpk/external-nvme/predictions/of-maestro/test --prediction-type OnsetsAndFramesNTPrediction --onset-threshold=0.1793 --frame-threshold=0.1793" />
+    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/of-04-17-comparing-weighted/rest --save-path /media/mpk/external-nvme/predictions/of-04-17-comparing-weighted/rest  --prediction-type OnsetsAndFramesNTPrediction --onset-threshold=0.062 --frame-threshold=0.062" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
