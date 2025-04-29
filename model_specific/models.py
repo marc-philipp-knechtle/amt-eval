@@ -17,28 +17,24 @@ import logging
 import os
 import re
 import sys
-from collections import defaultdict
+from abc import abstractmethod
+from glob import glob
+from typing import Dict, List, Any, Tuple
 
 import basic_pitch.note_creation
 import mir_eval
 import numpy as np
-import sklearn
 import torch
-from abc import abstractmethod
-from glob import glob
-from typing import Dict, List, Any, Tuple
+from scipy.stats import hmean
 from sklearn import metrics as sk_metrics
-
 from tqdm import tqdm
 
-import metrics_prediction.metrics_prediction_nt
 import metrics.ap as ap
+import metrics_prediction.metrics_prediction_nt
 import utils.midi
 from data.dataset import AmtEvalDataset
 from metrics_midi import metrics_midi_nt
 from utils import midi
-
-from scipy.stats import hmean
 
 eps = sys.float_info.epsilon
 
@@ -140,7 +136,7 @@ class ModelNTPrediction:
         return time, freqs
 
     @abstractmethod
-    def calculate(self, save_path: str) -> Dict:
+    def calculate(self, save_path: str, **kwargs) -> Dict:
         """
         creates all metrics possible -> returns them as dict
         """
@@ -167,8 +163,8 @@ class ModelNTPrediction:
                     The F1 score is defined as the harmonic mean of precision and recall. With this approach 
                     (using the arithmetic mean) this definition is not fulfilled.  
                 """
-                precision = np.mean(metrics[f'nt/{category}/precision'])
-                recall = np.mean(metrics[f'nt/{category}/recall'])
+                precision = np.mean(metrics[f'{prediction_type}/{category}/precision'])
+                recall = np.mean(metrics[f'{prediction_type}/{category}/recall'])
                 f1 = hmean([precision + eps, recall + eps]) - eps
 
                 name = 'f1_from_p_r'
@@ -197,6 +193,9 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
 
     MIN_MIDI = 21
     MAX_MIDI = 108
+
+    DEAFUL_ONSET_THRESHOLD = 0.5
+    DEFAULT_FRAME_THRESHOLD = 0.5
 
     def __init__(self, dataset_prediction_mapping: Dict[AmtEvalDataset, str], logger: logging.Logger):
         super().__init__(dataset_prediction_mapping, logger)
@@ -233,9 +232,8 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
 
                 for threshold in np.arange(0.05, 0.9, 0.05):
                     # -> Using F1 score (harmonic mean) between precision and recall as important value
-                    est: dict = self.get_p_i_v_attributes_from_tensor(frame_prediction,
-                                                                      onset_prediction,
-                                                                      velocities_prediction, threshold)
+                    est: dict = self.get_p_i_v_from_tensor(frame_prediction, onset_prediction, velocities_prediction,
+                                                           threshold, threshold)
                     frame_metrics: Dict[str, float] = mir_eval.multipitch.evaluate(ref['t_time'], ref['f'],
                                                                                    est['t_time'], est['f'])
                     frame_f1 = hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps
@@ -255,45 +253,43 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
 
         return float(np.mean(best_thresholds))
 
-    def calculate(self, save_path) -> Dict:
+    def calculate(self, save_path, **kwargs) -> Dict:
         all_metrics: Dict[str, Any] = {}
         """
         variable for all metrics for all  predictions in all datasets -> used to calculated the mixed test set
         """
+        frame_threshold = kwargs.get('frame_threshold')
+        onset_threshold = kwargs.get('onset_threshold')
+        calc_ap: bool = kwargs.get('calc_ap', False)
 
         for dataset, prediction_dir in self.dataset_prediction_mapping.items():
-            metrics: Dict[str, Any] = {'mpe/frame-raw/avg_precision': [],
-                                       'mpe/frame/avg_precision': [],
-                                       'mpe/note/avg_precision': [],
-                                       'mpe/note-with-offsets/avg_precision': [],
-                                       'nt/frame/avg_precision': []}
-            compute_ap_metrics: bool = OnsetsAndFramesNTPrediction.pt_predictions_exist(prediction_dir)
+            metrics = {}
+            compute_ap_metrics: bool = OnsetsAndFramesNTPrediction.pt_predictions_exist(prediction_dir) and calc_ap
             for label in tqdm(dataset):
                 basename = os.path.basename(label[0]).replace('.wav', '')
 
-                matching_midi_prediction: str = self.find_matching_midi_prediction(basename, prediction_dir)
-                nt_metrics = metrics_midi_nt.calculate_metrics(matching_midi_prediction, label[1])
-
+                ap_metrics = {}
                 if compute_ap_metrics:
-                    matching_pt_prediction_frames: str = self.find_matching_pt_prediction_frames(basename,
-                                                                                                 prediction_dir)
-                    self.logger.info(f'Calculating frame ap for label: {basename}')
-                    frame_ap: float = self.calc_mpe_frame_ap(label[1], matching_pt_prediction_frames)
-                    metrics['mpe/frame-raw/avg_precision'].append(frame_ap)
-                    frame_ap_frame, frame_ap_onset, frame_ap_onset_offset = self.calc_frame_ap(label[1],
-                                                                                               matching_pt_prediction_frames)
-                    metrics['mpe/frame/avg_precision'].append(frame_ap_frame)
-                    metrics['mpe/note/avg_precision'].append(frame_ap_onset)
-                    metrics['mpe/note-with-offsets/avg_precision'].append(frame_ap_onset_offset)
+                    ap_metrics = self.calc_ap_values(basename, prediction_dir, label[1])
 
-                    matching_pt_prediction_onsets: str = self.find_matching_pt_prediction_onsets(basename,
-                                                                                                 prediction_dir)
-                    self.logger.info(f'Calculating note ap for label: {basename}')
-                    note_ap_frame = self.calc_note_ap(label[1], matching_pt_prediction_frames,
-                                                      matching_pt_prediction_onsets)
-                    metrics['nt/frame/avg_precision'].append(note_ap_frame)
+                if frame_threshold is None and onset_threshold is None:
+                    matching_midi_prediction: str = self.find_matching_midi_prediction(basename, prediction_dir)
+                    nt_metrics: Dict[str, float] = metrics_midi_nt.calculate_metrics(matching_midi_prediction, label[1])
+                    mpe_metrics = self.calc_metric_and_save_midi_from_frames(basename, prediction_dir,
+                                                                             self.DEAFUL_ONSET_THRESHOLD,
+                                                                             self.DEFAULT_FRAME_THRESHOLD, label[1])
+                elif frame_threshold is not None and onset_threshold is not None:
+                    nt_metrics: Dict[str, float] = self.calc_metric_and_save_midi(basename, prediction_dir,
+                                                                                  onset_threshold, frame_threshold,
+                                                                                  label[1])
+                    mpe_metrics = self.calc_metric_and_save_midi_from_frames(basename, prediction_dir, onset_threshold,
+                                                                             frame_threshold, label[1])
+                else:
+                    raise RuntimeError(
+                        f'You need to set frame_threshold as well as onset_threshold. You need to set both.')
 
-                for key, value in nt_metrics.items():
+                joined_metrics: Dict[str, float] = {**nt_metrics, **ap_metrics, **mpe_metrics}
+                for key, value in joined_metrics.items():
                     if key not in metrics:
                         metrics[key] = []
                     metrics[key].append(value)
@@ -306,75 +302,94 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         super().write_metrics(all_metrics, 'mixed_test_set', save_path)
         return all_metrics
 
+    def calc_metric_and_save_midi(self, basename, prediction_dir: str, onset_threshold: float,
+                                  frame_threshold: float, ref_midi_path: str) -> Dict[str, float]:
+        pt_pred_frames: str = self.find_matching_pt_prediction_frames(basename, prediction_dir)
+        pt_pred_onsets: str = self.find_matching_pt_prediction_onsets(basename, prediction_dir)
+        frames: torch.FloatTensor = torch.load(pt_pred_frames, map_location='cpu').cpu()
+        onsets: torch.FloatTensor = torch.load(pt_pred_onsets, map_location='cpu').cpu()
+        velocities: torch.FloatTensor = torch.full_like(frames, fill_value=60, dtype=torch.float32)  # noqa
+
+        est = self.get_p_i_v_from_tensor(frames, onsets, velocities, onset_threshold, frame_threshold)
+
+        threshold_optimized_midi_filepath = os.path.join(prediction_dir, f'{basename}-opt-thr.mid')
+        midi.save_p_i_as_midi(threshold_optimized_midi_filepath, est['p_midi'], est['i_time'], est['v'])
+
+        return metrics_midi_nt.calculate_metrics(threshold_optimized_midi_filepath, ref_midi_path)
+
+    def calc_metric_and_save_midi_from_frames(self, basename, prediction_dir, onset_threshold, frame_threshold,
+                                              ref_midi_path) -> Dict[str, float]:
+        pt_pred_frames: str = self.find_matching_pt_prediction_frames(basename, prediction_dir)
+        frames: torch.FloatTensor = torch.load(pt_pred_frames, map_location='cpu').cpu()
+
+        est = self.get_p_i_v_from_tensor(frames, onset_threshold=onset_threshold, frame_threshold=frame_threshold)
+        midi_filepath = os.path.join(prediction_dir, f'{basename}-opt-thr-fromframes.mid')
+        midi.save_p_i_as_midi(midi_filepath, est['p_midi'], est['i_time'], est['v'])
+
+        return metrics_midi_nt.calculate_metrics(midi_filepath, ref_midi_path, pred_source='mpe')
+
+    def calc_ap_values(self, basename, prediction_dir, midipath: str) -> Dict[str, float]:
+        self.logger.info(f'Calculating ap values for label: {basename}')
+        matching_pt_prediction_frames: str = self.find_matching_pt_prediction_frames(basename, prediction_dir)
+        matching_pt_prediction_onsets: str = self.find_matching_pt_prediction_onsets(basename, prediction_dir)
+
+        frame_ap: float = self.calc_mpe_frame_ap(midipath, matching_pt_prediction_frames)
+        frame_ap_frame = self.calc_frame_ap(midipath, matching_pt_prediction_frames)
+        note_ap_frame = self.calc_note_ap(midipath, matching_pt_prediction_frames, matching_pt_prediction_onsets)
+        return {
+            'mpe/frame-raw/avg_precision': frame_ap,
+            'mpe/frame/avg_precision': frame_ap_frame,
+            'nt/frame/avg_precision': note_ap_frame
+        }
+
     def calc_frame_ap(self, midi_path: str, frame_pt_path: str):
         frame_prediction: torch.FloatTensor = torch.load(frame_pt_path, map_location='cpu').cpu()
-
-        ref: np.ndarray = midi.parse_midi_note_tracking(midi_path)
-        pitches: List = []
-        intervals: List = []
-        velocities: List = []
-        for start_time, end_time, pitch, velocity in ref:
-            pitches.append(int(pitch))
-            intervals.append([start_time, end_time])
-            velocities.append(velocity)
-        p_ref_midi: np.ndarray = np.array(pitches)
-        p_ref_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_ref_midi])
-        i_ref_time: np.ndarray = np.array(intervals)
-        i_ref_frames: np.ndarray = (i_ref_time * self.SCALING_REAL_TO_FRAME).astype(int)
-        v_ref: np.ndarray = np.array(velocities)
         # todo this might be wrong! (using frame_prediction.shape) :(
-        t_ref, f_ref = self.notes_to_frames(p_ref_midi, i_ref_frames, frame_prediction.shape)
-        t_ref_time = t_ref.astype(np.float64) * self.SCALING_FRAME_TO_REAL
-
+        ref = self.get_p_i_v_attributes_from_midi(midi_path, frame_prediction.shape, self.SCALING_REAL_TO_FRAME,
+                                                  self.SCALING_FRAME_TO_REAL)
         precision_recall_pairs_frame: List[Tuple[float, float]] = []
-        precision_recall_pairs_onset: List[Tuple[float, float]] = []
-        precision_recall_pairs_onset_offset: List[Tuple[float, float]] = []
 
         executed_thresholds = []  # Just used for visualization purposes
-        # includes threshold 0, but excludes threshold 1.0 -> 1.0 = no predcitions -> not useful...
+        # includes threshold 0, but excludes threshold 1.0 -> 1.0 = no predictions -> not useful...
         for threshold in np.arange(0, 1.0, 0.05):
-            p_est_midi, i_est_frames, v_est = self.extract_notes_from_frames(frame_prediction, threshold)
-            p_est_midi = p_est_midi + self.MIN_MIDI
-            p_est_hz = np.array([mir_eval.util.midi_to_hz(p) for p in p_est_midi])
-            i_est_time = (i_est_frames * self.SCALING_FRAME_TO_REAL)
+            est = self.get_p_i_v_from_tensor(frame_prediction, frame_threshold=threshold)
 
-            if len(p_est_midi) == 0:
+            if len(est['p_midi']) == 0:
                 continue
 
-            t_est, f_est = self.notes_to_frames(p_est_midi, i_est_frames, frame_prediction.shape)
-            t_est_time = t_est.astype(np.float64) * self.SCALING_FRAME_TO_REAL
-
-            frame_metrics: Dict[str, float] = mir_eval.multipitch.evaluate(t_ref_time, f_ref, t_est_time, f_est)
+            frame_metrics: Dict[str, float] = mir_eval.multipitch.evaluate(ref['t_time'], ref['f'], est['t_time'],
+                                                                           est['f'])
             p_frame: float = frame_metrics['Precision']
             r_frame: float = frame_metrics['Recall']
             precision_recall_pairs_frame.append((p_frame, r_frame))
 
-            p_onset, r_onset, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref_time, p_ref_hz,
-                                                                                        i_est_time, p_est_hz,
-                                                                                        offset_ratio=None)
-            p_onset_offset, r_onset_offset, f, o = mir_eval.transcription.precision_recall_f1_overlap(i_ref_time,
-                                                                                                      p_ref_hz,
-                                                                                                      i_est_time,
-                                                                                                      p_est_hz)
             executed_thresholds.append(threshold)
             precision_recall_pairs_frame.append((p_frame, r_frame))
-            precision_recall_pairs_onset.append((p_onset, r_onset))
-            precision_recall_pairs_onset_offset.append((p_onset_offset, r_onset_offset))
-
-        del p_ref_midi, p_ref_hz, i_ref_time, i_ref_frames, v_ref, t_ref, f_ref, t_ref_time
-        del p_est_midi, i_est_frames, v_est, p_est_hz, i_est_time, t_est, f_est, t_est_time
 
         thresholds = np.arange(0, 1.0, 0.05).tolist()
-        return (ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_frame, plot=False, thresholds=thresholds),
-                ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset, plot=False, thresholds=thresholds),
-                ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_onset_offset, plot=False,
-                                                  thresholds=thresholds))
+        return ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_frame, plot=False, thresholds=thresholds)
 
-    def get_p_i_v_attributes_from_tensor(self, frame_prediction: torch.FloatTensor, onset_prediction: torch.FloatTensor,
-                                         velocities_prediction: torch.FloatTensor, threshold: float):
-        # todo refactor this -> we don't get this exactly from the tensor but from the note_events -> signature is misleading
-        p_midi, i_frames, v = self.extract_notes(onset_prediction, frame_prediction, velocities_prediction, threshold,
-                                                 threshold)
+    def get_p_i_v_from_tensor(self, frame_prediction: torch.FloatTensor, onset_prediction: torch.FloatTensor = None,
+                              velocities_prediction: torch.FloatTensor = None,
+                              onset_threshold=0.5, frame_threshold=0.5) -> Dict[str, np.ndarray | List]:
+        """
+        Takes raw model output and returns Dict where the values can be used in mir_eval
+        onset_prediction and velocities prediction is optional -> if not specified, everything is computed from frames
+        Args:
+            frame_prediction: frame model output
+            onset_prediction: onset model output
+            velocities_prediction: velocities model output
+            onset_threshold:
+            frame_threshold:
+        Returns: Dict
+        """
+        if onset_prediction is not None and velocities_prediction is not None:
+            p_midi, i_frames, v = self.extract_notes(onset_prediction, frame_prediction, velocities_prediction,
+                                                     onset_threshold, frame_threshold)
+        elif frame_prediction is not None and onset_prediction is None and velocities_prediction is None:
+            p_midi, i_frames, v = self.extract_notes_from_frames(frame_prediction, frame_threshold)
+        else:
+            raise RuntimeError('Unknown combination of inputs')
         p_midi = p_midi + self.MIN_MIDI
         p_hz = np.array([mir_eval.util.midi_to_hz(p) for p in p_midi])
         i_time = (i_frames * self.SCALING_FRAME_TO_REAL)
@@ -410,35 +425,24 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         """
         frame_prediction: torch.FloatTensor = torch.load(frame_pt_path, map_location='cpu').cpu()
         onset_prediction: torch.FloatTensor = torch.load(onset_pt_path, map_location='cpu').cpu()
-        velocities_prediction: torch.FloatTensor = torch.full_like(frame_prediction, fill_value=60, dtype=torch.float32)
+        velocities: torch.FloatTensor = torch.full_like(frame_prediction, fill_value=60, dtype=torch.float32)  # noqa
 
-        assert frame_prediction.shape == onset_prediction.shape == velocities_prediction.shape
+        assert frame_prediction.shape == onset_prediction.shape == velocities.shape
 
-        p_ref_midi, i_ref_time, v_ref = midi.get_p_i_v_from_midi(midi_path)
-
-        p_ref_hz: np.ndarray = np.array([mir_eval.util.midi_to_hz(p) for p in p_ref_midi])
-        i_ref_frames: np.ndarray = (i_ref_time * self.SCALING_REAL_TO_FRAME).astype(int)
         # todo this might be wrong! (using frame_prediction.shape) :(
-        t_ref, f_ref = self.notes_to_frames(p_ref_midi, i_ref_frames, frame_prediction.shape)
-        t_ref_time = t_ref.astype(np.float64) * self.SCALING_FRAME_TO_REAL
+        ref = self.get_p_i_v_attributes_from_midi(midi_path, frame_prediction.shape, self.SCALING_REAL_TO_FRAME,
+                                                  self.SCALING_FRAME_TO_REAL)
 
         precision_recall_pairs_frame: List[Tuple[float, float]] = []
         thresholds = []
-        # includes threshold 0, but excludes threshold 1.0 -> 1.0 = no predcitions -> not useful...
+        # includes threshold 0, but excludes threshold 1.0 -> 1.0 = no predictions -> not useful...
         for threshold in np.arange(0, 1.0, 0.05):
-            p_est_midi, i_est_frames, v_est = self.extract_notes(onset_prediction, frame_prediction,
-                                                                 velocities_prediction, threshold, threshold)
-            p_est_midi = p_est_midi + self.MIN_MIDI
-            p_est_hz = np.array([mir_eval.util.midi_to_hz(p) for p in p_est_midi])
-            i_est_time = (i_est_frames * self.SCALING_FRAME_TO_REAL)
-
-            t_est, f_est = self.notes_to_frames(p_est_midi, i_est_frames, frame_prediction.shape)
-            t_est_time = t_est.astype(np.float64) * self.SCALING_FRAME_TO_REAL
-
-            if len(p_est_midi) == 0:
+            est = self.get_p_i_v_from_tensor(frame_prediction, onset_prediction, velocities,
+                                             threshold, threshold)
+            if len(est['p_midi']) == 0:
                 continue
-
-            frame_metrics: Dict[str, float] = mir_eval.multipitch.evaluate(t_ref_time, f_ref, t_est_time, f_est)
+            frame_metrics: Dict[str, float] = mir_eval.multipitch.evaluate(ref['t_time'], ref['f'], est['t_time'],
+                                                                           est['f'])
             p_frame: float = frame_metrics['Precision']
             r_frame: float = frame_metrics['Recall']
 
@@ -478,19 +482,6 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         shape(num_of_frames, 88)
         0 when note is not active at given frame and pitch, 1 otherwise
         """
-        """
-        # Used for debugging -> Construct midi again out of tensors (with binarization) 
-        pitches, intervals, velocities = metrics_prediction.utils.extract_notes_from_frames(
-            torch.tensor(f_annot_pitch), 0.5)
-        intervals = intervals * self.SCALING_FRAME_TO_REAL
-        midi.save_p_i_as_midi('/tmp/ref.mid', pitches, intervals, velocities)
-        pitches_pred, intervals_pred, velocities_pred = metrics_prediction.utils.extract_notes_from_frames(
-            frame_prediction, 0.5)
-        # The pitches for the prediction are offset by 21 because this is a piano prediction -> adding 21
-        pitches_pred = pitches_pred
-        intervals_pred = intervals_pred * self.SCALING_FRAME_TO_REAL
-        midi.save_p_i_as_midi('/tmp/pred.mid', pitches_pred, intervals_pred, velocities_pred)
-        """
         avg_precision_score = sk_metrics.average_precision_score(f_annot_pitch.flatten(), frame_prediction.flatten())
         return avg_precision_score
 
@@ -521,7 +512,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
 
     @staticmethod
     def extract_notes(onsets: torch.FloatTensor, frames: torch.FloatTensor, velocity: torch.FloatTensor,
-                      onset_threshold=0.5, frame_threshold=0.5):
+                      onset_threshold: float = 0.5, frame_threshold: float = 0.5):
         """
         !!!
         We copied this method form the Onsets and Frames repository!
@@ -600,8 +591,8 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
             intervals:         np array of detected intervals (in realtime)
             velocities:        np array of detected velocities
         """
-        frames = (frames > threshold).cpu().to(
-            torch.uint8)  # sets each value to 1 if it is above the threshold, 0 otherwis
+        # sets each value to 1 if it is above the threshold, 0 otherwise
+        frames = (frames > threshold).cpu().to(torch.uint8)  # noqa
         pitches = []
         intervals = []
         velocities = []
@@ -621,7 +612,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 if offset == frames.shape[0]:  # = we reach the end of the prediction
                     break
 
-            if offset > onset + 2:
+            if offset > onset:
                 pitches.append(pitch)
                 intervals.append([onset, offset])
                 velocities.append(70)
@@ -715,7 +706,7 @@ class BpNTPrediction(ModelNTPrediction):
 
         return float(np.mean(best_thresholds))
 
-    def calculate(self, save_path: str) -> Dict:
+    def calculate(self, save_path: str, **kwargs) -> Dict:
         all_metrics: Dict[str, Any] = {}
         dataset: AmtEvalDataset
         prediction_dir: str
