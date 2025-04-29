@@ -138,7 +138,7 @@ def main():
     parser.add_argument('--frame-threshold', type=float, default=None,
                         help='Threshold for frame.')
     parser.add_argument('--onset-threshold', type=float, default=None, help='Threshold for onset.')
-    parser.add_argument('--calc-ap', type=bool, default=False, help='Calculate average precision.')
+    parser.add_argument('--calc-ap', type=bool, default=True, help='Calculate average precision.')
     args: argparse.Namespace = parser.parse_args()
     dataset_name: str = parser.parse_args().dataset_name
     predictions_dir = args.predictions_dir
