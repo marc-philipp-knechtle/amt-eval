@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="evaluate WRD with basic-pitch predictions" type="PythonConfigurationType" factoryName="Python">
+  <configuration default="false" name="evaluate dir bp-04-24-comp+maestro+guit+medley+slakh" type="PythonConfigurationType" factoryName="Python" singleton="false">
     <module name="amt-eval" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/evaluate.py" />
-    <option name="PARAMETERS" value="$PROJECT_DIR$/../predictions/WRD/basic-pitch/ WagnerRingDataset Furtwangler1953,KeilberthFurtw1952,Krauss1953 --save-path $PROJECT_DIR$/runs" />
+    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/bp-04-24-comp+maestro+guit+medley+slakh/comparing --save-path /media/mpk/external-nvme/predictions/bp-04-24-comp+maestro+guit+medley+slakh/comparing --prediction-type BpNTPrediction --onset-threshold=0.2717 --frame-threshold=0.2717" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
