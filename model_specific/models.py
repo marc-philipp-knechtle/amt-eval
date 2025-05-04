@@ -25,6 +25,8 @@ import basic_pitch.note_creation
 import mir_eval
 import numpy as np
 import torch
+from basic_pitch.models import onset_loss
+from matplotlib import pyplot as plt
 from scipy.stats import hmean
 from sklearn import metrics as sk_metrics
 from tqdm import tqdm
@@ -217,6 +219,9 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         Returns: the optimal threshold for the dataset, combined in onset & frame threshold!
         """
         best_thr_foreach_file: List[float] = []
+        onset_values_for_diagram = {np.round(x, decimals=2): [] for x in np.arange(0.05, 0.9, 0.05)}
+        frame_values_for_diagram = {np.round(x, decimals=2): [] for x in np.arange(0.05, 0.9, 0.05)}
+
         for dataset, prediction_dir in self.dataset_prediction_mapping.items():
             assert OnsetsAndFramesNTPrediction.pt_predictions_exist(prediction_dir)
             for label in tqdm(dataset):
@@ -238,6 +243,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 best_threshold_value: np.float64 = np.float64(-1)
 
                 for threshold in np.arange(0.05, 0.9, 0.05):
+                    threshold = np.round(threshold, decimals=2)
                     # -> Using F1 score (harmonic mean) between precision and recall as important value
                     est: dict = self.get_p_i_v_from_tensor(frame_prediction, onset_prediction, velocities_prediction,
                                                            threshold, threshold)
@@ -251,12 +257,23 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                         est['i_time'],
                         est['p_hz'], offset_ratio=None)
 
+                    onset_values_for_diagram[threshold].append(f_onset)
+                    frame_values_for_diagram[threshold].append(frame_f1)
+
                     current_val: np.float64 = np.mean([frame_f1, f_onset])  # noqa (returns float64 not ndarray)
                     if best_threshold_value < current_val:
                         best_threshold_value = current_val
                         best_threshold = threshold
 
                 best_thr_foreach_file.append(best_threshold)
+
+                opt_thr_values = []
+                for thr, values in onset_values_for_diagram.items():
+                    opt_thr_values.append(np.mean(values))
+
+                print('asdf')
+
+        fig, ax = plt.subplots(figsize=(15, 15))
 
         return float(np.mean(best_thr_foreach_file))
 
@@ -652,7 +669,6 @@ class BpNTPrediction(ModelNTPrediction):
     def find_matching_midi_prediction(self, basename, prediction_dir) -> str:
         return super().find_matching_midi_prediction(basename, prediction_dir)
 
-
     def optimal_threshold(self) -> float:
         best_thresholds: List[float] = []
         for dataset, prediction_dir in self.dataset_prediction_mapping.items():
@@ -897,7 +913,6 @@ class BpNTPrediction(ModelNTPrediction):
         return ap.calc_ap_from_prec_recall_pairs(precision_recall_pairs_frame, plot=False,
                                                  thresholds=executed_thresholds,
                                                  title='Frame Precision/Recall Curve')
-
 
     def calc_mpe_frame_ap(self, midi_path: str, note: np.ndarray) -> float:
         """
