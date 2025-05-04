@@ -216,7 +216,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         https://machinelearningmastery.com/threshold-moving-for-imbalanced-classification/
         Returns: the optimal threshold for the dataset, combined in onset & frame threshold!
         """
-        best_thresholds: List[float] = []
+        best_thr_foreach_file: List[float] = []
         for dataset, prediction_dir in self.dataset_prediction_mapping.items():
             assert OnsetsAndFramesNTPrediction.pt_predictions_exist(prediction_dir)
             for label in tqdm(dataset):
@@ -256,9 +256,9 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                         best_threshold_value = current_val
                         best_threshold = threshold
 
-                best_thresholds.append(best_threshold)
+                best_thr_foreach_file.append(best_threshold)
 
-        return float(np.mean(best_thresholds))
+        return float(np.mean(best_thr_foreach_file))
 
     def calculate(self, save_path, **kwargs) -> Dict:
         all_metrics: Dict[str, Any] = {}
