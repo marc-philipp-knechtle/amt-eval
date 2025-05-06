@@ -5,6 +5,7 @@ channels:
     - nvidia
     - defaults
 dependencies:
+    - jupyter
     - librosa==0.9.2
     - pandas
     - python==3.10.0

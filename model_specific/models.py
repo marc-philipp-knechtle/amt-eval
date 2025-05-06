@@ -25,7 +25,6 @@ import basic_pitch.note_creation
 import mir_eval
 import numpy as np
 import torch
-from basic_pitch.models import onset_loss
 from matplotlib import pyplot as plt
 from scipy.stats import hmean
 from sklearn import metrics as sk_metrics
@@ -34,6 +33,7 @@ from tqdm import tqdm
 import metrics.ap as ap
 import metrics_prediction.metrics_prediction_nt
 import utils.midi
+import visualizations.plots
 from data.dataset import AmtEvalDataset
 from metrics_midi import metrics_midi_nt
 from utils import midi
@@ -271,9 +271,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 for thr, values in onset_values_for_diagram.items():
                     opt_thr_values.append(np.mean(values))
 
-                print('asdf')
-
-        fig, ax = plt.subplots(figsize=(15, 15))
+        visualizations.plots.plot_threshold_optimization(onset_values_for_diagram, frame_values_for_diagram)
 
         return float(np.mean(best_thr_foreach_file))
 
@@ -671,6 +669,10 @@ class BpNTPrediction(ModelNTPrediction):
 
     def optimal_threshold(self) -> float:
         best_thresholds: List[float] = []
+
+        onset_values_for_diagram = {np.round(x, decimals=2): [] for x in np.arange(0.05, 0.8, 0.05)}
+        frame_values_for_diagram = {np.round(x, decimals=2): [] for x in np.arange(0.05, 0.8, 0.05)}
+
         for dataset, prediction_dir in self.dataset_prediction_mapping.items():
             # todo assert that .npz files exist
             for label in tqdm(dataset):
@@ -689,6 +691,7 @@ class BpNTPrediction(ModelNTPrediction):
                 best_threshold_value: np.float64 = np.float64(-1)
 
                 for threshold in np.arange(0.05, 0.8, 0.05):
+                    threshold = np.round(threshold, decimals=2)
                     # todo this method needs very long time to run @ small thresholds
                     # -> python profile to optimize this?
                     est = self.get_p_i_v_from_prediction(note, contour, onset, threshold, threshold)
@@ -705,12 +708,17 @@ class BpNTPrediction(ModelNTPrediction):
                         est['i_time'],
                         est['p_hz'], offset_ratio=None)
 
+                    onset_values_for_diagram[threshold].append(f_onset)
+                    frame_values_for_diagram[threshold].append(frame_f1)
+
                     current_val: np.float64 = np.mean([frame_f1, f_onset])  # noqa (returns float64 not ndarray)
                     if best_threshold_value < current_val:
                         best_threshold_value = current_val
                         best_threshold = threshold
                 assert best_threshold > 0
                 best_thresholds.append(best_threshold)
+
+        visualizations.plots.plot_threshold_optimization(onset_values_for_diagram, frame_values_for_diagram)
 
         return float(np.mean(best_thresholds))
 
