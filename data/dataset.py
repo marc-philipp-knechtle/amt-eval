@@ -103,9 +103,9 @@ class NoteTrackingDataset(AmtEvalDataset):
 
 
 class SchubertWinterreiseDataset(NoteTrackingDataset):
-    swd_midi: str
-    swd_csv: str
-    swd_audio_wav: str
+    swd_midi_path: str
+    swd_csv_path: str
+    swd_audio_wav_path: str
     neither_split: str
 
     def __init__(self, path='datasets/Schubert_Winterreise_Dataset_v2-1', groups=None, logger_filepath: str = None,
@@ -119,9 +119,9 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         :return: the instance lol
         """
         # adding underscore to symbolize that these annotations are computationally created
-        self.swd_midi = os.path.join(path, '02_Annotations', '_ann_audio_note_midi')
-        self.swd_csv = os.path.join(path, '02_Annotations', 'ann_audio_note')
-        self.swd_audio_wav = os.path.join(path, '01_RawData', 'audio_wav')
+        self.swd_midi_path = os.path.join(path, '02_Annotations', '_ann_audio_note_midi')
+        self.swd_csv_path = os.path.join(path, '02_Annotations', 'ann_audio_note')
+        self.swd_audio_wav_path = os.path.join(path, '01_RawData', 'audio_wav')
 
         self.neither_split = neither_split
 
@@ -152,7 +152,7 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         Base methods to load all audio files into memory
         Returns: List of Tuple[audio_filename.wav,midi_filename.wav]
         """
-        audio_filepaths: List[str] = sorted(self.get_filepaths_for_group(self.swd_audio_wav, group))
+        audio_filepaths: List[str] = sorted(self.get_filepaths_for_group(self.swd_audio_wav_path, group))
         if len(audio_filepaths) == 0:
             raise RuntimeError(f'Expected files for group {group}, found nothing.')
 
@@ -164,11 +164,11 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
             elif self.neither_split == 'test':
                 audio_filepaths = audio_filepaths[16:25]
 
-        ann_audio_note_filepaths_csv: List[str] = glob(os.path.join(self.swd_csv, '*.csv'))
+        ann_audio_note_filepaths_csv: List[str] = glob(os.path.join(self.swd_csv_path, '*.csv'))
         assert len(ann_audio_note_filepaths_csv) > 0
 
         # save csv as midi
-        midi_path = midi.save_csv_as_midi(ann_audio_note_filepaths_csv, self.swd_midi)
+        midi_path = midi.save_csv_as_midi(ann_audio_note_filepaths_csv, self.swd_midi_path)
         midi_filepaths: List[str] = glob(os.path.join(midi_path, '*.mid'))
 
         # combine .wav with .midi
