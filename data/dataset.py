@@ -92,15 +92,6 @@ class NoteTrackingDataset(AmtEvalDataset):
         """
         raise NotImplementedError
 
-    @staticmethod
-    @abstractmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        """
-        used in NoteTrackingDataset.load(...)
-        :return: annotation as np.ndarray in the form of [onset,offset,pitch,velocity]
-        """
-        raise NotImplementedError
-
 
 class SchubertWinterreiseDataset(NoteTrackingDataset):
     swd_midi_path: str
@@ -176,14 +167,6 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
 
         # return self.create_audio_tsv(filepaths_audio_midi, self.swd_tsv)
         return filepaths_audio_midi
-
-    @staticmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        """
-        :param annotation_path: tsv annotation path
-        :return: tsv as np.ndarray
-        """
-        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
 
     @staticmethod
     def _combine_audio_midi(audio_filepaths: List[str], midi_filepaths: List[str]) -> List[Tuple[str, str]]:
@@ -273,10 +256,6 @@ class WagnerRingDataset(NoteTrackingDataset):
         return audio_midi_combination
 
     @staticmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        return SchubertWinterreiseDataset.load_annotations(annotation_path)
-
-    @staticmethod
     def _save_csv_as_midi(csv_filenames: List[str], midi_path: str):
         if not os.path.exists(midi_path):
             os.mkdir(midi_path)
@@ -356,10 +335,6 @@ class Bach10Dataset(NoteTrackingDataset):
         filepaths_audio_midi: List[Tuple[str, str]] = WagnerRingDataset._combine_audio_midi(audio_filepaths,
                                                                                             midi_filepaths)
         return filepaths_audio_midi
-
-    @staticmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        return SchubertWinterreiseDataset.load_annotations(annotation_path)
 
 
 class PhenicxAnechoicDataset(NoteTrackingDataset):
