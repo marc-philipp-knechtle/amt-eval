@@ -177,25 +177,6 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
         # return self.create_audio_tsv(filepaths_audio_midi, self.swd_tsv)
         return filepaths_audio_midi
 
-    # Comment because of removal of previous ML-dependent pipeline
-    # @staticmethod
-    # def create_audio_tsv(filepaths_audio_midi: List[Tuple[str, str]], tsv_dir: str) -> List[Tuple[str, str]]:
-    #     """
-    #     Creates .tsv files based on midi files (using midi.create_tsv_from_midi(...))
-    #     Returns: List[Tuple[str, str]] of audio filepath with tsv filepath
-    #     """
-    #     filepaths_audio_tsv: List[Tuple[str, str]] = []
-    #     audio_filepath: str
-    #     midi_filepath: str
-    #     if not os.path.exists(tsv_dir):
-    #         os.makedirs(tsv_dir)
-    #     for audio_filepath, midi_filepath in filepaths_audio_midi:
-    #         tsv_filepath: str = os.path.join(tsv_dir, os.path.basename(midi_filepath).replace('.mid', '.tsv'))
-    #         if not os.path.exists(tsv_filepath):
-    #             midi.save_midi_as_tsv(midi_filepath, tsv_filepath)
-    #         filepaths_audio_tsv.append((audio_filepath, tsv_filepath))
-    #     return filepaths_audio_tsv
-
     @staticmethod
     def load_annotations(annotation_path: str) -> np.ndarray:
         """
