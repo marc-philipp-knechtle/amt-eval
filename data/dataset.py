@@ -377,10 +377,6 @@ class PhenicxAnechoicDataset(NoteTrackingDataset):
         # For this implementation, we only have one file per group -> this is enough
         return [(audio_filepath, midi_path)]
 
-    @staticmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
-
 
 class RwcDataset(NoteTrackingDataset):
     rwc_wav: str
@@ -411,10 +407,6 @@ class RwcDataset(NoteTrackingDataset):
         filepaths_audio_midi: List[Tuple[str, str]] = WagnerRingDataset._combine_audio_midi(audio_filepaths,
                                                                                             midi_filepaths)
         return filepaths_audio_midi
-
-    @staticmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
 
 
 class TriosDataset(NoteTrackingDataset):
@@ -450,10 +442,6 @@ class TriosDataset(NoteTrackingDataset):
                                                      os.path.join(self.trios_midi_combined, group + '.mid'),
                                                      default_ticks_per_beat=480)
         return [(audio_filepath, midi_filepath)]
-
-    @staticmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
 
 
 class ChoralSingingDataset(NoteTrackingDataset):
@@ -521,10 +509,6 @@ class ChoralSingingDataset(NoteTrackingDataset):
                 filepaths_audio_midi.append((audio_file, all_midi))
         return filepaths_audio_midi
 
-    @staticmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
-
 
 class MusicNetDataset(NoteTrackingDataset):
     mun_audio: str
@@ -563,9 +547,6 @@ class MusicNetDataset(NoteTrackingDataset):
     def __str__(self):
         return 'MusicNetDataset'
 
-    @staticmethod
-    def load_annotations(annotation_path: str) -> np.ndarray:
-        return np.loadtxt(annotation_path, delimiter='\t', skiprows=1)
 
     @classmethod
     def available_groups(cls):
