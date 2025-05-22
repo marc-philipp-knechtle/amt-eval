@@ -227,14 +227,17 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
             for label in tqdm(dataset):
                 basename = os.path.basename(label[0]).replace('.wav', '')
                 matching_pt_prediction_frames: str = self.find_matching_pt_prediction_frames(basename, prediction_dir)
-                matching_pt_prediction_onsets: str = self.find_matching_pt_prediction_onsets(basename, prediction_dir)
-
                 frame_prediction: torch.FloatTensor = torch.load(matching_pt_prediction_frames,
                                                                  map_location='cpu').cpu()
-                onset_prediction: torch.FloatTensor = torch.load(matching_pt_prediction_onsets,
-                                                                 map_location='cpu').cpu()
-                velocities_prediction: torch.FloatTensor = \
-                    (torch.full_like(frame_prediction, fill_value=60, dtype=torch.float32))  # noqa
+                try:
+                    matching_pt_prediction_onsets: str = self.find_matching_pt_prediction_onsets(basename,
+                                                                                                 prediction_dir)
+                    velocities_prediction = (
+                        torch.full_like(frame_prediction, fill_value=60, dtype=torch.float32))  # noqa
+                    onset_prediction = torch.load(matching_pt_prediction_onsets, map_location='cpu').cpu()
+                except RuntimeError:
+                    onset_prediction = None
+                    velocities_prediction = None
 
                 ref: dict = self.get_p_i_v_attributes_from_midi(label[1], frame_prediction.shape,
                                                                 self.SCALING_REAL_TO_FRAME, self.SCALING_FRAME_TO_REAL)
