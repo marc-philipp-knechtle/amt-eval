@@ -46,5 +46,5 @@ def plot_rec_rec_curve(precision: List[float], recall: List[float], thresholds: 
             ax.annotate(f"({thr:.2f})", (x, y), textcoords="offset points", xytext=(5, 5), ha='center')
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
-    ax.set_title(title if title is not None else 'Recall-Recall Curve')
+    ax.set_title(title if title is not None else 'Precision-Recall Curve')
     plt.show()
