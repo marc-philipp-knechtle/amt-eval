@@ -255,11 +255,14 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                                                                                    est['t_time'], est['f'])
                     frame_f1 = hmean([frame_metrics['Precision'] + eps, frame_metrics['Recall'] + eps]) - eps
 
-                    p_onset, r_onset, f_onset, o_onset = mir_eval.transcription.precision_recall_f1_overlap(
-                        ref['i_time'],
-                        ref['p_hz'],
-                        est['i_time'],
-                        est['p_hz'], offset_ratio=None)
+                    if len(est['i_time']) == 0:
+                        f_onset = 0.0
+                    else:
+                        p_onset, r_onset, f_onset, o_onset = mir_eval.transcription.precision_recall_f1_overlap(
+                            ref['i_time'],
+                            ref['p_hz'],
+                            est['i_time'],
+                            est['p_hz'], offset_ratio=None)
 
                     onset_values_for_diagram[threshold].append(f_onset)
                     frame_values_for_diagram[threshold].append(frame_f1)
@@ -275,7 +278,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 for thr, values in onset_values_for_diagram.items():
                     opt_thr_values.append(np.mean(values))
 
-        visualizations.plots.plot_threshold_optimization(onset_values_for_diagram, frame_values_for_diagram)
+        # visualizations.plots.plot_threshold_optimization(onset_values_for_diagram, frame_values_for_diagram)
 
         return float(np.mean(best_thr_foreach_file))
 
@@ -821,7 +824,8 @@ class BpNTPrediction(ModelNTPrediction):
         return {
             'mpe/frame-raw/avg_precision': frame_ap,
             'mpe/frame/avg_precision': frame_ap_frame,
-            'nt/frame/avg_precision': note_ap_frame
+            'nt/frame/avg_precision': note_ap_frame,
+            'nt/onset-raw/avg_precision': self.calc_onset_ap(midipath, onset)
         }
 
     def calc_metrics_and_save_midi(self, basename, prediction_dir, onset_threshold: float, frame_threshold: float,
@@ -975,4 +979,23 @@ class BpNTPrediction(ModelNTPrediction):
                                                                                                      self.SCALING_REAL_TO_FRAME,
                                                                                                      'pitch').T)
         avg_precision_score = sk_metrics.average_precision_score(f_annot_pitch.flatten(), note.flatten())
+        return avg_precision_score
+
+    def calc_onset_ap(self, midi_path: str, onset_prediction: np.ndarray, plot=False):
+        note_events = utils.midi.parse_midi_note_tracking(midi_path)
+
+        columns_before = np.zeros((onset_prediction.shape[0], 21), dtype=onset_prediction.dtype)
+        columns_after = np.zeros((onset_prediction.shape[0], 19), dtype=onset_prediction.dtype)
+        onset_prediction = np.concatenate((columns_before, onset_prediction), axis=1)
+        onset_prediction = np.concatenate((onset_prediction, columns_after), axis=1)
+
+        f_annot_onsets = (
+            metrics_prediction.metrics_prediction_nt.compute_onset_array_nooverlap(note_events,
+                                                                                   onset_prediction.shape[0],
+                                                                                   self.SCALING_REAL_TO_FRAME,
+                                                                                   'pitch').T)
+        avg_precision_score = sk_metrics.average_precision_score(f_annot_onsets.flatten(), onset_prediction.flatten())
+        if plot:
+            PrecisionRecallDisplay.from_predictions(f_annot_onsets.flatten(), onset_prediction.flatten())
+            plt.show()
         return avg_precision_score
