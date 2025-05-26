@@ -294,6 +294,8 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 basename = os.path.basename(label[0]).replace('.wav', '')
 
                 ap_metrics = {}
+                nt_metrics = {}
+                mpe_metrics = {}
                 if compute_ap_metrics:
                     ap_metrics = self.calc_ap_values(basename, prediction_dir, label[1])
 
@@ -304,6 +306,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                                                                              self.DEAFUL_ONSET_THRESHOLD,
                                                                              self.DEFAULT_FRAME_THRESHOLD, label[1])
                 elif frame_threshold is not None and onset_threshold is not None:
+                    # todo uncomment this for pure frame level eval
                     nt_metrics: Dict[str, float] = self.calc_metric_and_save_midi(basename, prediction_dir,
                                                                                   onset_threshold, frame_threshold,
                                                                                   label[1])
@@ -356,14 +359,17 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
     def calc_ap_values(self, basename, prediction_dir, midipath: str) -> Dict[str, float]:
         self.logger.info(f'Calculating ap values for label: {basename}')
         matching_pt_prediction_frames: str = self.find_matching_pt_prediction_frames(basename, prediction_dir)
+        # todo comment for frame model
         matching_pt_prediction_onsets: str = self.find_matching_pt_prediction_onsets(basename, prediction_dir)
 
         frame_ap: float = self.calc_mpe_frame_ap(midipath, matching_pt_prediction_frames)
         frame_ap_frame = self.calc_frame_ap(midipath, matching_pt_prediction_frames)
+        # todo comment for frame model
         note_ap_frame = self.calc_note_ap(midipath, matching_pt_prediction_frames, matching_pt_prediction_onsets)
         return {
             'mpe/frame-raw/avg_precision': frame_ap,
             'mpe/frame/avg_precision': frame_ap_frame,
+            # todo comment for frame model
             'nt/frame/avg_precision': note_ap_frame
         }
 
