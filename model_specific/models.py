@@ -28,6 +28,7 @@ import torch
 from matplotlib import pyplot as plt
 from scipy.stats import hmean
 from sklearn import metrics as sk_metrics
+from sklearn.metrics import PrecisionRecallDisplay
 from tqdm import tqdm
 
 import metrics.ap as ap
@@ -196,7 +197,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
     OaFSampleRate: int = 16000
 
     SAMPLE_RATE = 16000
-    HOP_LENGTH = SAMPLE_RATE * 32 // 1000  # ~ 11.2ms
+    HOP_LENGTH = SAMPLE_RATE * 32 // 1000  # ~ 11.2ms (32 -> see O+F repo = length of a single frame in ms)
     SCALING_FRAME_TO_REAL = HOP_LENGTH / SAMPLE_RATE
     SCALING_REAL_TO_FRAME = SAMPLE_RATE / HOP_LENGTH
 
@@ -362,15 +363,14 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         # todo comment for frame model
         matching_pt_prediction_onsets: str = self.find_matching_pt_prediction_onsets(basename, prediction_dir)
 
-        frame_ap: float = self.calc_mpe_frame_ap(midipath, matching_pt_prediction_frames)
-        frame_ap_frame = self.calc_frame_ap(midipath, matching_pt_prediction_frames)
-        # todo comment for frame model
-        note_ap_frame = self.calc_note_ap(midipath, matching_pt_prediction_frames, matching_pt_prediction_onsets)
         return {
-            'mpe/frame-raw/avg_precision': frame_ap,
-            'mpe/frame/avg_precision': frame_ap_frame,
+            'mpe/frame-raw/avg_precision': self.calc_mpe_frame_ap(midipath, matching_pt_prediction_frames),
+            'mpe/frame/avg_precision': self.calc_frame_ap(midipath, matching_pt_prediction_frames),
             # todo comment for frame model
-            'nt/frame/avg_precision': note_ap_frame
+            'nt/frame/avg_precision': self.calc_note_ap(midipath, matching_pt_prediction_frames,
+                                                        matching_pt_prediction_onsets),
+            # todo comment for frame model
+            'nt/onset-raw/avg_precision': self.calc_onset_ap(midipath, matching_pt_prediction_onsets)
         }
 
     def calc_frame_ap(self, midi_path: str, frame_pt_path: str):
@@ -514,6 +514,28 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         0 when note is not active at given frame and pitch, 1 otherwise
         """
         avg_precision_score = sk_metrics.average_precision_score(f_annot_pitch.flatten(), frame_prediction.flatten())
+        return avg_precision_score
+
+    def calc_onset_ap(self, midi_path: str, matching_onset_prediction_pt_path: str, plot=False) -> float:
+        onset_prediction: torch.tensor = torch.load(matching_onset_prediction_pt_path, map_location='cpu').cpu()
+
+        # Extending with zeros to match the 88 piano keys (extend to full piano range)
+        columns_before = torch.zeros((onset_prediction.shape[0], 21), dtype=onset_prediction.dtype)
+        columns_after = torch.zeros((onset_prediction.shape[0], 19), dtype=onset_prediction.dtype)
+        onset_prediction = torch.cat((columns_before, onset_prediction), dim=1)
+        onset_prediction = torch.cat((onset_prediction, columns_after), dim=1)
+
+        note_events = utils.midi.parse_midi_note_tracking(midi_path)
+        f_annot_onsets = (
+            metrics_prediction.metrics_prediction_nt.compute_onset_array_nooverlap(note_events,
+                                                                                   onset_prediction.shape[0],
+                                                                                   self.SCALING_REAL_TO_FRAME,
+                                                                                   'pitch').T)
+
+        avg_precision_score = sk_metrics.average_precision_score(f_annot_onsets.flatten(), onset_prediction.flatten())
+        if plot:
+            PrecisionRecallDisplay.from_predictions(f_annot_onsets.flatten(), onset_prediction.flatten())
+            plt.show()
         return avg_precision_score
 
     @staticmethod
