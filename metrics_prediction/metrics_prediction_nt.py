@@ -52,7 +52,7 @@ def compute_onset_array_nooverlap(note_events, num_time_frames, fs, annot_type='
         else:
             raise RuntimeError(f'Unexpected annotation type: {annot_type}')
 
-        annot_array[pitch_ind, start_ind - 2:start_ind + 1] = 1
+        annot_array[pitch_ind, start_ind] = 1
 
     return annot_array
 
