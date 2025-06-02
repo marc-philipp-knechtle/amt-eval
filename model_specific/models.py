@@ -303,12 +303,14 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 if compute_ap_metrics:
                     ap_metrics = self.calc_ap_values(basename, prediction_dir, label[1])
 
+                # if we just calculate the metrics by using the midi file
                 if frame_threshold is None and onset_threshold is None:
                     matching_midi_prediction: str = self.find_matching_midi_prediction(basename, prediction_dir)
                     nt_metrics: Dict[str, float] = metrics_midi_nt.calculate_metrics(matching_midi_prediction, label[1])
                     mpe_metrics = self.calc_metric_and_save_midi_from_frames(basename, prediction_dir,
                                                                              self.DEAFUL_ONSET_THRESHOLD,
                                                                              self.DEFAULT_FRAME_THRESHOLD, label[1])
+                # if we calculate the metrics by using the raw predictions + extract the midi out of this prediction
                 elif frame_threshold is not None and onset_threshold is not None:
                     # todo uncomment this for pure frame level eval
                     nt_metrics: Dict[str, float] = self.calc_metric_and_save_midi(basename, prediction_dir,
