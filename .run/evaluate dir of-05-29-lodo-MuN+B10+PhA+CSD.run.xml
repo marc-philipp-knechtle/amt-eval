@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/evaluate.py" />
-    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/of-05-29-lodo-MuN+B10+PhA+CSD/comparing --save-path /media/mpk/external-nvme/predictions/of-05-29-lodo-MuN+B10+PhA+CSD/comparing  --prediction-type OnsetsAndFramesNTPrediction --onset-threshold=0.0957 --frame-threshold=0.0957" />
+    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/of-05-29-lodo-MuN+B10+PhA+CSD/rest --save-path /media/mpk/external-nvme/predictions/of-05-29-lodo-MuN+B10+PhA+CSD/rest  --prediction-type OnsetsAndFramesNTPrediction --onset-threshold=0.0957 --frame-threshold=0.0957" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
