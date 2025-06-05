@@ -6,7 +6,6 @@ from abc import abstractmethod
 from glob import glob
 from typing import List, Dict, Tuple
 
-import numpy as np
 import pandas as pd
 import pretty_midi
 from torch.utils.data import Dataset
@@ -194,8 +193,8 @@ class SchubertWinterreiseDataset(NoteTrackingDataset):
 
 class WagnerRingDataset(NoteTrackingDataset):
     """
-    The Wagner Ring dataset matches the Schubert Winterreise dataset in terms of audio structure. 
-    However it is not easily possible to use the implementations of SWD (without SWD rewriting) as a lot of it is also SWD specific. 
+    The Wagner Ring dataset matches the Schubert Winterreise dataset in terms of audio structure.
+    However it is not easily possible to use the implementations of SWD (without SWD rewriting) as a lot of it is also SWD specific.
     One goal would be to reuse static methods as much as possible.
     """
     wr_midi: str
@@ -382,6 +381,9 @@ class RwcDataset(NoteTrackingDataset):
     rwc_wav: str
     rwc_midi_warped: str
 
+    non_piano_ids: List[str] = ['001', '002', '003', '004', '005', '007', '008', '009', '010', '011', '012', '013',
+                                '014', '015', '016', '017', '024', '025', '036', '038', '041']
+
     def __init__(self, path='datasets/RWC', groups=None, logger_filepath: str = None):
         self.rwc_wav = os.path.join(path, 'wav_22050_mono')
         self.rwc_midi_warped = os.path.join(path, 'MIDI_warped')
@@ -393,15 +395,18 @@ class RwcDataset(NoteTrackingDataset):
 
     @classmethod
     def available_groups(cls) -> List[str]:
-        return ['rwc']
+        return ['rwc', 'non-piano']
 
     def get_files(self, group: str) -> List[Tuple[str, str]]:
         logger.info(f'Loading files for group {group}, searching in {self.rwc_wav}')
         audio_filepaths: List[str] = glob(os.path.join(self.rwc_wav, '*.wav'), recursive=False)
-        if len(audio_filepaths) == 0:
+        midi_filepaths: List[str] = glob(os.path.join(self.rwc_midi_warped, '*.mid'), recursive=False)
+        if len(audio_filepaths) == 0 or len(midi_filepaths) == 0:
             raise RuntimeError(f'Expected files for group {group}, found nothing.')
 
-        midi_filepaths: List[str] = glob(os.path.join(self.rwc_midi_warped, '*.mid'), recursive=False)
+        if 'non-piano' in group:
+            audio_filepaths = [f for f in audio_filepaths if any(id_ in f for id_ in self.non_piano_ids)]
+            midi_filepaths = [f for f in midi_filepaths if any(id_ in f for id_ in self.non_piano_ids)]
 
         # combine .wav with .mid
         filepaths_audio_midi: List[Tuple[str, str]] = WagnerRingDataset._combine_audio_midi(audio_filepaths,
@@ -546,7 +551,6 @@ class MusicNetDataset(NoteTrackingDataset):
 
     def __str__(self):
         return 'MusicNetDataset'
-
 
     @classmethod
     def available_groups(cls):
