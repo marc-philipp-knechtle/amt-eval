@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="evaluate dir of-06-07-size-piano-100" type="PythonConfigurationType" factoryName="Python" singleton="false">
+  <configuration default="false" name="evaluate dir of-06-07-size-piano-10" type="PythonConfigurationType" factoryName="Python" singleton="false">
     <module name="amt-eval" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/evaluate.py" />
-    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/of-06-07-size-piano-100/non-piano --save-path /media/mpk/external-nvme/predictions/of-06-07-size-piano-100/non-piano  --prediction-type OnsetsAndFramesNTPrediction --onset-threshold=0.0837 --frame-threshold=0.0837" />
+    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/of-06-07-size-piano-10/non-piano --save-path /media/mpk/external-nvme/predictions/of-06-07-size-piano-10/non-piano  --prediction-type OnsetsAndFramesNTPrediction --onset-threshold=0.063 --frame-threshold=0.063" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
