@@ -383,6 +383,7 @@ class RwcDataset(NoteTrackingDataset):
 
     non_piano_ids: List[str] = ['001', '002', '003', '004', '005', '007', '008', '009', '010', '011', '012', '013',
                                 '014', '015', '016', '017', '024', '025', '036', '038', '041']
+    non_piano_test_ids: List[str] = ['015', '016', '017']
 
     def __init__(self, path='datasets/RWC', groups=None, logger_filepath: str = None):
         self.rwc_wav = os.path.join(path, 'wav_22050_mono')
@@ -395,7 +396,7 @@ class RwcDataset(NoteTrackingDataset):
 
     @classmethod
     def available_groups(cls) -> List[str]:
-        return ['rwc', 'non-piano']
+        return ['rwc', 'non-piano', 'non-piano-test']
 
     def get_files(self, group: str) -> List[Tuple[str, str]]:
         logger.info(f'Loading files for group {group}, searching in {self.rwc_wav}')
@@ -404,9 +405,12 @@ class RwcDataset(NoteTrackingDataset):
         if len(audio_filepaths) == 0 or len(midi_filepaths) == 0:
             raise RuntimeError(f'Expected files for group {group}, found nothing.')
 
-        if 'non-piano' in group:
+        if 'non-piano' == group:
             audio_filepaths = [f for f in audio_filepaths if any(id_ in f for id_ in self.non_piano_ids)]
             midi_filepaths = [f for f in midi_filepaths if any(id_ in f for id_ in self.non_piano_ids)]
+        elif 'non-piano-test' == group:
+            audio_filepaths = [f for f in audio_filepaths if any(id_ in f for id_ in self.non_piano_test_ids)]
+            midi_filepaths = [f for f in midi_filepaths if any(id_ in f for id_ in self.non_piano_test_ids)]
 
         # combine .wav with .mid
         filepaths_audio_midi: List[Tuple[str, str]] = WagnerRingDataset._combine_audio_midi(audio_filepaths,
