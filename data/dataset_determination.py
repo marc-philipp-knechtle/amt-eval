@@ -25,6 +25,16 @@ dataset_definitions_non_piano = {
     'RWC': lambda: RwcDataset(groups=['non-piano'])
 }
 
+exp_size_style_impact = {
+    'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+    'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
+    'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
+    'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
+    'RWC': lambda: RwcDataset(groups=['non-piano-test']),
+    'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
+    'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
+}
+
 validation_dataset_comparing_paper = {
     'B10': lambda: Bach10Dataset(groups=['05', '06']),
     'CSD': lambda: ChoralSingingDataset(groups=['Guerrero_NinoDios']),
