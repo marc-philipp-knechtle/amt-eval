@@ -316,13 +316,17 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                     nt_metrics: Dict[str, float] = self.calc_metric_and_save_midi(basename, prediction_dir,
                                                                                   onset_threshold, frame_threshold,
                                                                                   label[1])
+                    nt_metrics_onset = self.calc_onset_metrics(label[1],
+                                                               self.find_matching_pt_prediction_onsets(basename,
+                                                                                                       prediction_dir),
+                                                               onset_threshold)
                     mpe_metrics = self.calc_metric_and_save_midi_from_frames(basename, prediction_dir, onset_threshold,
                                                                              frame_threshold, label[1])
                 else:
                     raise RuntimeError(
                         f'You need to set frame_threshold as well as onset_threshold. You need to set both.')
 
-                joined_metrics: Dict[str, float] = {**nt_metrics, **ap_metrics, **mpe_metrics}
+                joined_metrics: Dict[str, float] = {**nt_metrics, **ap_metrics, **mpe_metrics, **nt_metrics_onset}
                 for key, value in joined_metrics.items():
                     if key not in metrics:
                         metrics[key] = []
@@ -542,6 +546,32 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
             PrecisionRecallDisplay.from_predictions(f_annot_onsets.flatten(), onset_prediction.flatten())
             plt.show()
         return avg_precision_score
+
+    def calc_onset_metrics(self, midi_path: str, matching_onset_prediction_pt_path: str, onset_threshold: float) -> \
+            Dict[str, float]:
+        onset_prediction: torch.tensor = torch.load(matching_onset_prediction_pt_path, map_location='cpu').cpu()
+        onsets = (onset_prediction > onset_threshold).cpu().to(torch.uint8)
+
+        columns_before = torch.zeros((onset_prediction.shape[0], 21), dtype=onset_prediction.dtype)
+        columns_after = torch.zeros((onset_prediction.shape[0], 19), dtype=onset_prediction.dtype)
+        onsets = torch.cat((columns_before, onsets), dim=1)
+        onsets = torch.cat((onsets, columns_after), dim=1)
+
+        note_events = utils.midi.parse_midi_note_tracking(midi_path)
+        f_annot_onsets = (
+            metrics_prediction.metrics_prediction_nt.compute_onset_array_nooverlap(note_events,
+                                                                                   onset_prediction.shape[0],
+                                                                                   self.SCALING_REAL_TO_FRAME,
+                                                                                   'pitch').T)
+
+        precision = sk_metrics.precision_score(f_annot_onsets.flatten(), onsets.flatten())
+        recall = sk_metrics.recall_score(f_annot_onsets.flatten(), onsets.flatten())
+        f1 = sk_metrics.f1_score(f_annot_onsets.flatten(), onsets.flatten())
+        return {
+            'nt/onset-raw/precision': precision,
+            'nt/onset-raw/recall': recall,
+            'nt/onset-raw/f1': f1
+        }
 
     @staticmethod
     def pt_predictions_exist(prediction_dir) -> bool:
