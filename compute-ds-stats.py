@@ -5,7 +5,7 @@ from data import dataset_determination
 
 
 def main():
-    dataset = dataset_determination.dataset_definitions_trans_comparing_paper['B10']()
+    dataset = dataset_determination.dataset_definitions_trans_comparing_paper['MuN']()
 
     for label in tqdm(dataset):
         midipath = label[1]
