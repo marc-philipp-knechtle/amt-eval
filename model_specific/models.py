@@ -805,6 +805,8 @@ class BpNTPrediction(ModelNTPrediction):
                 ref_midi = label[1]
 
                 ap_metrics = {}
+                nt_metrics = {}
+                nt_metrics_onsets = {}
                 if compute_ap_metrics:
                     ap_metrics = self.calc_ap_values(basename, prediction_dir, label[1])
 
@@ -821,11 +823,12 @@ class BpNTPrediction(ModelNTPrediction):
                                                                                    ref_midi)
                     mpe_metrics = self.calc_metrics_and_save_midi_from_frames(basename, prediction_dir, onset_threshold,
                                                                               frame_threshold, ref_midi)
+                    nt_metrics_onsets = self.calc_onset_metrics(ref_midi, basename, prediction_dir, onset_threshold)
                 else:
                     raise RuntimeError(
                         f'You need to set frame_threshold as well as onset_threshold. You need to set both.')
 
-                joined_metrics: Dict[str, float] = {**nt_metrics, **mpe_metrics, **ap_metrics}
+                joined_metrics: Dict[str, float] = {**nt_metrics, **mpe_metrics, **ap_metrics, **nt_metrics_onsets}
                 for key, value in joined_metrics.items():
                     if key not in metrics:
                         metrics[key] = []
@@ -1031,3 +1034,34 @@ class BpNTPrediction(ModelNTPrediction):
             PrecisionRecallDisplay.from_predictions(f_annot_onsets.flatten(), onset_prediction.flatten())
             plt.show()
         return avg_precision_score
+
+    def calc_onset_metrics(self, midi_path: str, basename, prediction_dir, onset_threshold: float) -> Dict[
+        str, float]:
+
+        matching_npz_file: str = super().find_matching_file(basename, prediction_dir, '*.npz')
+        data: np.ndarray = np.load(matching_npz_file, allow_pickle=True)['basic_pitch_model_output'].item()
+
+        onset_prediction: np.ndarray = data['onset']
+
+        onset_prediction = (onset_prediction > onset_threshold)
+
+        note_events = utils.midi.parse_midi_note_tracking(midi_path)
+
+        columns_before = np.zeros((onset_prediction.shape[0], 21), dtype=onset_prediction.dtype)
+        columns_after = np.zeros((onset_prediction.shape[0], 19), dtype=onset_prediction.dtype)
+        onset_prediction = np.concatenate((columns_before, onset_prediction), axis=1)
+        onset_prediction = np.concatenate((onset_prediction, columns_after), axis=1)
+
+        f_annot_onsets = (
+            metrics_prediction.metrics_prediction_nt.compute_onset_array_nooverlap(note_events,
+                                                                                   onset_prediction.shape[0],
+                                                                                   self.SCALING_REAL_TO_FRAME,
+                                                                                   'pitch').T)
+        precision = sk_metrics.precision_score(f_annot_onsets.flatten(), onset_prediction.flatten())
+        recall = sk_metrics.recall_score(f_annot_onsets.flatten(), onset_prediction.flatten())
+        f1 = sk_metrics.f1_score(f_annot_onsets.flatten(), onset_prediction.flatten())
+        return {
+            'nt/onset-raw/precision': precision,
+            'nt/onset-raw/recall': recall,
+            'nt/onset-raw/f1': f1
+        }
