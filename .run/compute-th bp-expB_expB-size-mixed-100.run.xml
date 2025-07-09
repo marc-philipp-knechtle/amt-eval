@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="evaluate dir of-06-14-complexity-48" type="PythonConfigurationType" factoryName="Python" singleton="false">
+  <configuration default="false" name="compute-th bp-expB/expB-size-mixed-100" type="PythonConfigurationType" factoryName="Python">
     <module name="amt-eval" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
@@ -13,8 +13,8 @@
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/evaluate.py" />
-    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/of-06-14-complexity-48/non-piano --save-path /media/mpk/external-nvme/predictions/of-06-14-complexity-48/non-piano  --prediction-type OnsetsAndFramesNTPrediction --onset-threshold=0.1402 --frame-threshold=0.1402" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/compute-th.py" />
+    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/bp-expB/expB-size-mixed-100/msbpc/ BpNTPrediction" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
