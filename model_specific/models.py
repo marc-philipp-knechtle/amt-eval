@@ -39,6 +39,8 @@ from data.dataset import AmtEvalDataset
 from metrics_midi import metrics_midi_nt
 from utils import midi
 
+import pickle
+
 eps = sys.float_info.epsilon
 
 
@@ -740,9 +742,18 @@ class BpNTPrediction(ModelNTPrediction):
         frame_values_for_diagram = {np.round(x, decimals=2): [] for x in np.arange(0.05, 0.8, 0.05)}
 
         for dataset, prediction_dir in self.dataset_prediction_mapping.items():
+            best_thresholds_dct: Dict[str, float] = {}
+            caching_filepath = os.path.join(prediction_dir, 'best_thresholds.pkl')
+            if os.path.exists(caching_filepath):
+                with open(caching_filepath, 'rb') as f:
+                    best_thresholds_dct = pickle.load(f)
+                    self.logger.info(f'Using cached best thresholds from {caching_filepath}')
             # todo assert that .npz files exist
             for label in tqdm(dataset):
                 basename: str = str(os.path.basename(label[0]).replace('.wav', ''))
+                if basename in best_thresholds_dct:
+                    best_thresholds.append(best_thresholds_dct[basename])
+                    continue
                 matching_npz_file: str = super().find_matching_file(basename, prediction_dir, '*.npz')
                 data: np.ndarray = np.load(matching_npz_file, allow_pickle=True)['basic_pitch_model_output'].item()
 
@@ -783,6 +794,12 @@ class BpNTPrediction(ModelNTPrediction):
                         best_threshold = threshold
                 assert best_threshold > 0
                 best_thresholds.append(best_threshold)
+
+                best_thresholds_dct[basename] = best_threshold
+                with open(caching_filepath, 'wb') as f:
+                    # noinspection PyTypeChecker
+                    pickle.dump(best_thresholds_dct, f)
+                    self.logger.info(f'Saved best thresholds to {caching_filepath}')
 
         visualizations.plots.plot_threshold_optimization(onset_values_for_diagram, frame_values_for_diagram)
 
