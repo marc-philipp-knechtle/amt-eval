@@ -135,23 +135,23 @@ def calculate_metrics(prediction_filepath: str, source_filepath: str, pred_sourc
     return metrics
 
 
-def evaluate_note_based_mpe(p_ref: np.ndarray, i_ref: np.ndarray, p_est: np.ndarray, i_est: np.ndarray):
+def evaluate_note_based_mpe(p_ref_midi: np.ndarray, i_ref_time: np.ndarray, p_est_midi: np.ndarray, i_est_time: np.ndarray):
     """
-    :param p_ref: pitch values, shape(n,)
-    :param i_ref: reference intervals, shape(n,2)
-    :param p_est: estimated pitch values, shape(m,1) (m=number of detected notes)
-    :param i_est: estimated intervals, shape(m,2)
+    :param p_ref_midi: pitch values, shape(n,)
+    :param i_ref_time: reference intervals, shape(n,2)
+    :param p_est_midi: estimated pitch values, shape(m,1) (m=number of detected notes)
+    :param i_est_time: estimated intervals, shape(m,2)
     """
-    i_est_frames: np.ndarray = (i_est * scaling_real_to_frame).astype(int).reshape(-1, 2)
-    i_ref_frames: np.ndarray = (i_ref * scaling_real_to_frame).astype(int).reshape(-1, 2)
+    i_est_frames: np.ndarray = (i_est_time * scaling_real_to_frame).astype(int).reshape(-1, 2)
+    i_ref_frames: np.ndarray = (i_ref_time * scaling_real_to_frame).astype(int).reshape(-1, 2)
 
-    p_ref_min_midi = np.array([x for x in p_ref])
+    p_ref_min_midi = np.array([x for x in p_ref_midi])
     t_ref, f_ref = decoding.note_to_multipitch_realtime(p_ref_min_midi, i_ref_frames, scaling_frame_to_real)
     """
     List of estimated intervals in frame time, length n is the number of estimated notes
     shape=(m,2)
     """
-    t_est, f_est = decoding.note_to_multipitch_realtime(p_est, i_est_frames, scaling_frame_to_real)
+    t_est, f_est = decoding.note_to_multipitch_realtime(p_est_midi, i_est_frames, scaling_frame_to_real)
 
     frame_metrics = mir_eval.multipitch.evaluate(t_ref, f_ref, t_est, f_est)
     frame_metrics_filtered = {key: frame_metrics[key] for key in ['Precision', 'Recall'] if key in frame_metrics}
