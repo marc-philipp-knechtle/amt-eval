@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/evaluate.py" />
-    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/bp-expB/expB-size-mixed-130/non-piano --save-path /media/mpk/external-nvme/predictions/bp-expB/expB-size-mixed-130/non-piano  --prediction-type BpNTPrediction --calc-ap=True --onset-threshold=0.3402 --frame-threshold=0.3402" />
+    <option name="PARAMETERS" value="/media/mpk/external-nvme/predictions/bp-expB/expB-size-mixed-130/msbpc --save-path /media/mpk/external-nvme/predictions/bp-expB/expB-size-mixed-130/msbpc  --prediction-type BpNTPrediction --calc-ap=True --onset-threshold=0.3402 --frame-threshold=0.3402" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
