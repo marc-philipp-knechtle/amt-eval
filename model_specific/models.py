@@ -37,6 +37,7 @@ import utils.midi
 import visualizations.plots
 from data.dataset import AmtEvalDataset
 from metrics_midi import metrics_midi_nt
+from model_specific import bp_note_creation
 from utils import midi
 
 import pickle
@@ -428,6 +429,11 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         if onset_prediction is not None and velocities_prediction is not None:
             p_midi, i_frames, v = self.extract_notes(onset_prediction, frame_prediction, velocities_prediction,
                                                      onset_threshold, frame_threshold)
+
+            # p_midi, i_frames, v = self.extract_notes_bp_decoding(onset_prediction, frame_prediction,
+            #                                                      velocities_prediction,
+            #                                                      onset_threshold, frame_threshold)
+            # p_midi = p_midi - self.MIN_MIDI # this is handled in bp decoding -> avoid doing it twice
         elif frame_prediction is not None and onset_prediction is None and velocities_prediction is None:
             p_midi, i_frames, v = self.extract_notes_from_frames(frame_prediction, frame_threshold)
         else:
@@ -478,7 +484,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
         precision_recall_pairs_frame: List[Tuple[float, float]] = []
         thresholds = []
         # includes threshold 0, but excludes threshold 1.0 -> 1.0 = no predictions -> not useful...
-        for threshold in np.arange(0, 1.0, 0.05):
+        for threshold in np.arange(0.05, 1.0, 0.05):
             est = self.get_p_i_v_from_tensor(frame_prediction, onset_prediction, velocities,
                                              threshold, threshold)
             if len(est['p_midi']) == 0:
@@ -669,6 +675,20 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
                 velocities.append(np.mean(velocity_samples) if len(velocity_samples) > 0 else 0)
 
         return np.array(pitches), np.array(intervals), np.array(velocities)
+
+    def extract_notes_bp_decoding(self, onsets: torch.FloatTensor, frames: torch.FloatTensor,
+                                  velocity: torch.FloatTensor,
+                                  onset_threshold, frame_threshold) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        onsets_np = onsets.cpu().numpy()
+        frames_np = frames.cpu().numpy()
+        velocity_np = velocity.cpu().numpy()
+
+        note_events = bp_note_creation.bp_decoding_with_oaf_output(
+            {'note': frames_np, 'onset': onsets_np, 'contour': frames_np},
+            onset_thresh=onset_threshold, frame_thresh=frame_threshold, include_pitch_bends=False)
+        p_midi, i_frames, v = midi.get_p_i_v_from_note_events(note_events)
+        # i_frames: np.ndarray = (i_time * self.SCALING_REAL_TO_FRAME).astype(int)
+        return p_midi, i_frames, v
 
     @staticmethod
     def extract_notes_from_frames(frames, threshold):
