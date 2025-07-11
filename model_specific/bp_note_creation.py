@@ -424,10 +424,10 @@ def output_to_notes_polyphonic(
     peak_thresh_mat[peaks] = onsets[peaks]
 
     onset_idx = np.where(peak_thresh_mat >= onset_thresh)
-    # onset_time_idx = onset_idx[0][::-1]  # sort to go backwards in time
-    # onset_freq_idx = onset_idx[1][::-1]  # sort to go backwards in time
-    onset_time_idx = onset_idx[0]
-    onset_freq_idx = onset_idx[1]
+    onset_time_idx = onset_idx[0][::-1]  # sort to go backwards in time
+    onset_freq_idx = onset_idx[1][::-1]  # sort to go backwards in time
+    # onset_time_idx = onset_idx[0]
+    # onset_freq_idx = onset_idx[1]
 
     remaining_energy = np.zeros(frames.shape)
     remaining_energy[:, :] = frames[:, :]
