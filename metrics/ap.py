@@ -19,6 +19,8 @@ def calc_ap_from_prec_recall_pairs(precision_recall_pairs: List[Tuple[float, flo
         title: ...
     Returns: Average Precision score, calculated with sklearn
     """
+        precision_recall_pairs.append((1.0, 0.0))  # Add a point to ensure the curve ends at (1,0)
+    precision_recall_pairs.append((0.0, 1.0))
     precision_recall_pairs_sorted_precision = sorted(precision_recall_pairs, key=lambda pair: pair[0])
     precision, recall = zip(*precision_recall_pairs_sorted_precision)
     ap = auc(precision, recall)
