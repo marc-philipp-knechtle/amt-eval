@@ -302,6 +302,7 @@ class OnsetsAndFramesNTPrediction(ModelNTPrediction):
 
                 ap_metrics = {}
                 nt_metrics = {}
+                nt_metrics_onset = {}
                 mpe_metrics = {}
                 if compute_ap_metrics:
                     ap_metrics = self.calc_ap_values(basename, prediction_dir, label[1])
