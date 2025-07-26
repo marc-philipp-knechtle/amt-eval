@@ -60,7 +60,27 @@ exp_A = {
     'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
 }
 
-exp_B = {
+exp_B_frame_vs_mpe = {
+    'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+    'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
+    'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
+    'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
+    'RWC': lambda: RwcDataset(groups=['rwc']),
+    'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
+    'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
+}
+
+# exp_E = {
+#     'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+#     'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
+#     'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
+#     'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
+#     'RWC': lambda: RwcDataset(groups=['non-piano']),
+#     'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
+#     'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
+# }
+
+exp_C = {
     'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
     'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
     'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
@@ -70,15 +90,53 @@ exp_B = {
     'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
 }
 
-exp_E = {
+exp_D_training_size = {
+    'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+    'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
+    'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
+    'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
+    'RWC': lambda: RwcDataset(groups=['non-piano-test']),
+    'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
+    'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
+}
+
+exp_E_training_style = {
+    'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+    'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
+    'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
+    'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
+    'RWC': lambda: RwcDataset(groups=['non-piano-test']),
+    'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
+    'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
+}
+
+exp_F_diversity = {
+    'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+    'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
+    'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
+    'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
+    'RWC': lambda: RwcDataset(groups=['rwc']),
+    'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
+    'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
+}
+
+
+exp_F_diversity_non_piano = {
+    'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
+    'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
+    'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
+    'RWC': lambda: RwcDataset(groups=['non-piano']),
+}
+
+exp_G = {
     'B10': lambda: Bach10Dataset(groups=['07', '08', '09', '10']),
     'CSD': lambda: ChoralSingingDataset(groups=['Bruckner_LocusIste']),
     'MuN': lambda: MusicNetDataset(groups=['MuN-10-var-test']),
     'PhA': lambda: PhenicxAnechoicDataset(groups=['bruckner', 'mozart']),
     'RWC': lambda: RwcDataset(groups=['non-piano']),
     'SWD': lambda: SchubertWinterreiseDataset(groups=['HU33', 'SC06'], neither_split='test'),
-    'Trios': lambda: TriosDataset(groups=['brahms', 'lussier', 'mozart', 'schubert', 'take_five']),
 }
+
 
 validation_dataset_comparing_paper = {
     'B10': lambda: Bach10Dataset(groups=['05', '06']),
