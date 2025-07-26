@@ -166,7 +166,7 @@ def main():
         for root, dirs, files in os.walk(predictions_dir):
             for directory in dirs:
                 predictions_directory = os.path.join(root, directory)
-                dataset = dataset_determination.dataset_definitions_trans_comparing_paper[directory]()
+                dataset = dataset_determination.exp_E_training_style    [directory]()
                 dataset_prediction_mapping[dataset] = str(predictions_directory)
 
         model_prediction = getattr(model_specific.models, args.prediction_type)(dataset_prediction_mapping, logger)
