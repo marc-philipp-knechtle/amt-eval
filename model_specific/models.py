@@ -161,6 +161,7 @@ class ModelNTPrediction:
         name = 'type of metric'
         total_eval_str: str = f'{prediction_type:>32} {category:>32} {name:25}:\n'
         metrics = {key: val for key, val in sorted(metrics.items(), key=lambda ele: ele[0])}
+        new_f1s = {}
         for key, values in metrics.items():
             prediction_type, category, name = key.split('/')
             """
@@ -181,13 +182,50 @@ class ModelNTPrediction:
                 f1 = hmean([precision + eps, recall + eps]) - eps
 
                 name = 'f1_from_p_r'
+                # metrics[f'{prediction_type}/{category}/{name}'] = f1
+                new_f1s[f'{prediction_type}/{category}/{name}'] = f1
                 eval_str += f'\n{prediction_type:>32} {category:>32} {name:25}: {f1:.3f}'
             total_eval_str += eval_str + '\n'
             self.logger.info(total_eval_str)
+
+
+        joined = {**metrics, **new_f1s}
+
+        mpe_frame_raw_ap = np.round(np.mean(joined['mpe/frame-raw/avg_precision']) * 100, decimals=1)
+        mpe_frame_ap = np.round(np.mean(joined['mpe/frame/avg_precision']) * 100, decimals=1)
+        mpe_frame_f1 = np.round(np.mean(joined['mpe/frame/f1_from_p_r']) * 100, decimals=1)
+        mpe_frame_p = np.round(np.mean(joined['mpe/frame/precision']) * 100, decimals=1)
+        mpe_frame_r = np.round(np.mean(joined['mpe/frame/recall']) * 100, decimals=1)
+        mpe_onset_f1 = np.round(np.mean(joined['mpe/note/f1_from_p_r']) * 100, decimals=1)
+        mpe_onset_p = np.round(np.mean(joined['mpe/note/precision']) * 100, decimals=1)
+        mpe_onset_r = np.round(np.mean(joined['mpe/note/recall']) * 100, decimals=1)
+        mpe_onset_offset_f1 = np.round(np.mean(joined['mpe/note-with-offsets/f1_from_p_r']) * 100, decimals=1)
+        mpe_onset_offset_p = np.round(np.mean(joined['mpe/note-with-offsets/precision']) * 100, decimals=1)
+        mpe_onset_offset_r = np.round(np.mean(joined['mpe/note-with-offsets/recall']) * 100, decimals=1)
+
+        nt_frame_ap = np.round(np.mean(joined['nt/frame/avg_precision']) * 100, decimals=1)
+        nt_frame_f1 = np.round(np.mean(joined['nt/frame/f1_from_p_r']) * 100, decimals=1)
+        nt_frame_p = np.round(np.mean(joined['nt/frame/precision']) * 100, decimals=1)
+        nt_frame_r = np.round(np.mean(joined['nt/frame/recall']) * 100, decimals=1)
+        nt_onset_f1 = np.round(np.mean(joined['nt/note/f1_from_p_r']) * 100, decimals=1)
+        nt_onset_p = np.round(np.mean(joined['nt/note/precision']) * 100, decimals=1)
+        nt_onset_r = np.round(np.mean(joined['nt/note/recall']) * 100, decimals=1)
+        nt_onset_offset_f1 = np.round(np.mean(joined['nt/note-with-offsets/f1_from_p_r']) * 100, decimals=1)
+        nt_onset_offset_p = np.round(np.mean(joined['nt/note-with-offsets/precision']) * 100, decimals=1)
+        nt_onset_offset_r = np.round(np.mean(joined['nt/note-with-offsets/recall']) * 100, decimals=1)
+
+        latex_eval_str = (f'& {mpe_frame_raw_ap} & {mpe_frame_ap} & {mpe_frame_f1} & {mpe_frame_p} & {mpe_frame_r} & '
+                          f'{mpe_onset_f1} & {mpe_onset_p} & {mpe_onset_r} & {mpe_onset_offset_f1} & '
+                          f'{mpe_onset_offset_p} & {mpe_onset_offset_r} & {nt_frame_ap} & {nt_frame_f1} & '
+                          f'{nt_frame_p} & {nt_frame_r} & {nt_onset_f1} & {nt_onset_p} & {nt_onset_r} &'
+                          f'{nt_onset_offset_f1} & {nt_onset_offset_p} & {nt_onset_offset_r}')
         if save_path is not None:
             metrics_filepath = os.path.join(save_path, f'metrics-{str(dataset_name)}.txt')
+            latex_filepath = os.path.join(save_path, f'latex-{str(dataset_name)}.txt')
             with open(metrics_filepath, 'w') as f:
                 f.write(total_eval_str)
+            with open(latex_filepath, 'w') as f:
+                f.write(latex_eval_str)
 
 
 class OnsetsAndFramesNTPrediction(ModelNTPrediction):
